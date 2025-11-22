@@ -71,6 +71,7 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // Health check
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
@@ -100,6 +101,7 @@ apiRouter.use('/notifications', notificationRoutes);
 app.use(`/api/${config.apiVersion}`, apiRouter);
 
 // 404 handler
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((_req: Request, res: Response) => {
   res.status(404).json({
     errors: [{ message: 'Route not found', code: 'NOT_FOUND' }],
