@@ -333,6 +333,7 @@ export class UserService {
   }
 
   private sanitizeUser(user: any): any {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...sanitized } = user;
     return sanitized;
   }

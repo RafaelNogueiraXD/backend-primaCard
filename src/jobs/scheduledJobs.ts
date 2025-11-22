@@ -35,10 +35,10 @@ export const closeEvaluationWindows = cron.schedule('0 3 * * *', async () => {
 
     for (const appointment of appointments) {
       try {
-        // Check if professional reviewed the patient
-        const professionalReview = appointment.reviews.find(
-          r => r.authorId === appointment.professionalId
-        );
+        // Check if professional reviewed the patient (reserved for future logic)
+        // const professionalReview = appointment.reviews.find(
+        //   r => r.authorId === appointment.professionalId
+        // );
 
         // Grant points regardless (fallback mechanism)
         const snapshot = appointment.procedureSnapshot as any;

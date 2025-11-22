@@ -4,6 +4,7 @@ import { ResponseHandler } from '../utils/responseHandler';
 import { JWTPayload } from '../types';
 
 // Extend Express Request type
+/* eslint-disable @typescript-eslint/no-namespace */
 declare global {
   namespace Express {
     interface Request {
@@ -11,6 +12,7 @@ declare global {
     }
   }
 }
+/* eslint-enable @typescript-eslint/no-namespace */
 
 export const authenticate = (req: Request, res: Response, next: NextFunction): Response | void => {
   try {
@@ -52,7 +54,7 @@ export const authorize = (...allowedRoles: string[]) => {
   };
 };
 
-export const optionalAuth = (req: Request, res: Response, next: NextFunction): void => {
+export const optionalAuth = (req: Request, _res: Response, next: NextFunction): void => {
   try {
     const authHeader = req.headers.authorization;
 
