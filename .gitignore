@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.production
+.env.*.local
+*.log
+.DS_Store
+coverage/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Vercel
+.vercel
+.vercel.json
+
+# Prisma
+prisma/migrations/
+!prisma/migrations/.gitkeep

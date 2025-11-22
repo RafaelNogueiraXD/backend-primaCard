@@ -1,0 +1,1876 @@
+{
+  "info": {
+    "name": "PrimaCard API",
+    "description": "API REST completa para o sistema de agendamentos e recompensas PrimaCard",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', jsonData.data.tokens.accessToken);",
+                  "    pm.collectionVariables.set('refresh_token', jsonData.data.tokens.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"teste@email.com\",\n  \"password\": \"Senha123!@#\",\n  \"firstName\": \"Usuário\",\n  \"lastName\": \"Teste\",\n  \"phone\": \"11999999999\",\n  \"role\": \"PATIENT\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Registra um novo usuário no sistema"
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', jsonData.data.tokens.accessToken);",
+                  "    pm.collectionVariables.set('refresh_token', jsonData.data.tokens.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"joao.santos@email.com\",\n  \"password\": \"Paciente123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Autentica um usuário e retorna tokens JWT"
+          }
+        },
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', jsonData.data.tokens.accessToken);",
+                  "    pm.collectionVariables.set('refresh_token', jsonData.data.tokens.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@primacard.com\",\n  \"password\": \"Admin123!@#\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login como administrador"
+          }
+        },
+        {
+          "name": "Login Profissional",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', jsonData.data.tokens.accessToken);",
+                  "    pm.collectionVariables.set('refresh_token', jsonData.data.tokens.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dra.silva@primacard.com\",\n  \"password\": \"Dentista123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login como profissional/dentista"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', jsonData.data.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Renova o access token usando o refresh token"
+          }
+        },
+        {
+          "name": "Get My Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Retorna os dados do usuário autenticado"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Faz logout e invalida os tokens"
+          }
+        },
+        {
+          "name": "Request Password Reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"joao.santos@email.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/forgot-password",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "forgot-password"]
+            },
+            "description": "Solicita reset de senha via email"
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"reset_token_aqui\",\n  \"newPassword\": \"NovaSenha123!@#\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/reset-password",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "reset-password"]
+            },
+            "description": "Reseta a senha usando o token recebido por email"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health & Status",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Verifica o status da API e conexão com o banco"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Appointments",
+      "item": [
+        {
+          "name": "Create Appointment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"professionalId\": \"professional_id_aqui\",\n  \"procedureId\": \"procedure_id_aqui\",\n  \"scheduledFor\": \"2025-11-20T10:00:00.000Z\",\n  \"notes\": \"Primeira consulta\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/appointments",
+              "host": ["{{base_url}}"],
+              "path": ["appointments"]
+            },
+            "description": "Cria um novo agendamento (apenas pacientes)"
+          }
+        },
+        {
+          "name": "List My Appointments",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/appointments?status=SCHEDULED&page=1&perPage=10",
+              "host": ["{{base_url}}"],
+              "path": ["appointments"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "SCHEDULED"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "perPage",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Lista agendamentos do usuário autenticado"
+          }
+        },
+        {
+          "name": "Get Appointment Details",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/appointments/:appointmentId",
+              "host": ["{{base_url}}"],
+              "path": ["appointments", ":appointmentId"],
+              "variable": [
+                {
+                  "key": "appointmentId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Retorna detalhes de um agendamento específico"
+          }
+        },
+        {
+          "name": "Accept Appointment (Professional)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/appointments/:appointmentId/accept",
+              "host": ["{{base_url}}"],
+              "path": ["appointments", ":appointmentId", "accept"],
+              "variable": [
+                {
+                  "key": "appointmentId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Profissional aceita um agendamento pendente"
+          }
+        },
+        {
+          "name": "Cancel Appointment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Motivo do cancelamento\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/appointments/:appointmentId/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["appointments", ":appointmentId", "cancel"],
+              "variable": [
+                {
+                  "key": "appointmentId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Cancela um agendamento (penalidade se < 24h)"
+          }
+        },
+        {
+          "name": "Mark Arrival",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/appointments/:appointmentId/arrival",
+              "host": ["{{base_url}}"],
+              "path": ["appointments", ":appointmentId", "arrival"],
+              "variable": [
+                {
+                  "key": "appointmentId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Marca chegada do paciente (registra pontualidade)"
+          }
+        },
+        {
+          "name": "Complete Appointment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Consulta realizada com sucesso\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/appointments/:appointmentId/complete",
+              "host": ["{{base_url}}"],
+              "path": ["appointments", ":appointmentId", "complete"],
+              "variable": [
+                {
+                  "key": "appointmentId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Profissional marca consulta como concluída (libera pontos)"
+          }
+        },
+        {
+          "name": "Mark No-Show",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/appointments/:appointmentId/no-show",
+              "host": ["{{base_url}}"],
+              "path": ["appointments", ":appointmentId", "no-show"],
+              "variable": [
+                {
+                  "key": "appointmentId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Profissional marca que paciente não compareceu"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Points",
+      "item": [
+        {
+          "name": "Get My Balance",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/points/balance",
+              "host": ["{{base_url}}"],
+              "path": ["points", "balance"]
+            },
+            "description": "Retorna saldo de pontos por bucket (general, ortodontia, etc)"
+          }
+        },
+        {
+          "name": "Get My Transactions",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/points/transactions?bucket=general&page=1&perPage=20",
+              "host": ["{{base_url}}"],
+              "path": ["points", "transactions"],
+              "query": [
+                {
+                  "key": "bucket",
+                  "value": "general"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "perPage",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Lista histórico de transações de pontos"
+          }
+        },
+        {
+          "name": "Admin - Adjust Points",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"user_id_aqui\",\n  \"bucket\": \"general\",\n  \"delta\": 50,\n  \"reason\": \"Ajuste manual por solicitação\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/points/adjust",
+              "host": ["{{base_url}}"],
+              "path": ["points", "adjust"]
+            },
+            "description": "Administrador ajusta pontos manualmente (+ ou -)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rewards",
+      "item": [
+        {
+          "name": "List Rewards",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rewards?category=ortodontia&isActive=true&page=1&perPage=10",
+              "host": ["{{base_url}}"],
+              "path": ["rewards"],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "ortodontia"
+                },
+                {
+                  "key": "isActive",
+                  "value": "true"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "perPage",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Lista recompensas disponíveis"
+          }
+        },
+        {
+          "name": "Get Reward Details",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rewards/:rewardId",
+              "host": ["{{base_url}}"],
+              "path": ["rewards", ":rewardId"],
+              "variable": [
+                {
+                  "key": "rewardId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Retorna detalhes de uma recompensa específica"
+          }
+        },
+        {
+          "name": "Create Reward (Admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nova Recompensa\",\n  \"description\": \"Descrição da recompensa\",\n  \"costPoints\": 100,\n  \"category\": \"general\",\n  \"stock\": 50,\n  \"expiryHours\": 24,\n  \"image\": \"https://exemplo.com/imagem.jpg\",\n  \"termsAndConditions\": \"Termos e condições\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/rewards",
+              "host": ["{{base_url}}"],
+              "path": ["rewards"]
+            },
+            "description": "Administrador cria uma nova recompensa"
+          }
+        },
+        {
+          "name": "Update Reward (Admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Recompensa Atualizada\",\n  \"costPoints\": 120,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/rewards/:rewardId",
+              "host": ["{{base_url}}"],
+              "path": ["rewards", ":rewardId"],
+              "variable": [
+                {
+                  "key": "rewardId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Administrador atualiza uma recompensa"
+          }
+        },
+        {
+          "name": "Delete Reward (Admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rewards/:rewardId",
+              "host": ["{{base_url}}"],
+              "path": ["rewards", ":rewardId"],
+              "variable": [
+                {
+                  "key": "rewardId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Administrador deleta uma recompensa"
+          }
+        },
+        {
+          "name": "Redeem Reward",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rewards/:rewardId/redeem",
+              "host": ["{{base_url}}"],
+              "path": ["rewards", ":rewardId", "redeem"],
+              "variable": [
+                {
+                  "key": "rewardId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Paciente resgata uma recompensa (status HOLD com OTP)"
+          }
+        },
+        {
+          "name": "Confirm Redemption with OTP",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/redemptions/:redemptionId/confirm",
+              "host": ["{{base_url}}"],
+              "path": ["redemptions", ":redemptionId", "confirm"],
+              "variable": [
+                {
+                  "key": "redemptionId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Confirma resgate com código OTP (pontos debitados definitivamente)"
+          }
+        },
+        {
+          "name": "Cancel Redemption",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/redemptions/:redemptionId/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["redemptions", ":redemptionId", "cancel"],
+              "variable": [
+                {
+                  "key": "redemptionId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Cancela um resgate em HOLD (pontos estornados)"
+          }
+        },
+        {
+          "name": "List My Redemptions",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/redemptions?status=CONFIRMED&page=1&perPage=10",
+              "host": ["{{base_url}}"],
+              "path": ["redemptions"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "CONFIRMED"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "perPage",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Lista resgates do usuário autenticado"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Procedures",
+      "item": [
+        {
+          "name": "List Procedures",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/procedures?category=ortodontia&professionalId=",
+              "host": ["{{base_url}}"],
+              "path": ["procedures"],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "ortodontia"
+                },
+                {
+                  "key": "professionalId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Lista procedimentos disponíveis"
+          }
+        },
+        {
+          "name": "Get Procedure Details",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/procedures/:procedureId",
+              "host": ["{{base_url}}"],
+              "path": ["procedures", ":procedureId"],
+              "variable": [
+                {
+                  "key": "procedureId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Retorna detalhes de um procedimento"
+          }
+        },
+        {
+          "name": "Create Procedure (Professional)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Limpeza Completa\",\n  \"description\": \"Limpeza dental completa\",\n  \"category\": \"limpeza\",\n  \"durationMinutes\": 60,\n  \"pointsGeneral\": 50,\n  \"pointsCategory\": 20\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/procedures",
+              "host": ["{{base_url}}"],
+              "path": ["procedures"]
+            },
+            "description": "Profissional cria um novo procedimento"
+          }
+        },
+        {
+          "name": "Update Procedure (Professional)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Limpeza Completa Atualizada\",\n  \"pointsGeneral\": 60\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/procedures/:procedureId",
+              "host": ["{{base_url}}"],
+              "path": ["procedures", ":procedureId"],
+              "variable": [
+                {
+                  "key": "procedureId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Profissional atualiza um procedimento"
+          }
+        },
+        {
+          "name": "Delete Procedure (Professional)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/procedures/:procedureId",
+              "host": ["{{base_url}}"],
+              "path": ["procedures", ":procedureId"],
+              "variable": [
+                {
+                  "key": "procedureId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Profissional deleta um procedimento"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Professionals",
+      "item": [
+        {
+          "name": "List Professionals",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/professionals?specialty=ortodontia&isActive=true",
+              "host": ["{{base_url}}"],
+              "path": ["professionals"],
+              "query": [
+                {
+                  "key": "specialty",
+                  "value": "ortodontia"
+                },
+                {
+                  "key": "isActive",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Lista profissionais disponíveis"
+          }
+        },
+        {
+          "name": "Get Professional Details",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/professionals/:professionalId",
+              "host": ["{{base_url}}"],
+              "path": ["professionals", ":professionalId"],
+              "variable": [
+                {
+                  "key": "professionalId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Retorna detalhes de um profissional"
+          }
+        },
+        {
+          "name": "Get Professional Availability",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/professionals/:professionalId/availability?date=2025-11-20",
+              "host": ["{{base_url}}"],
+              "path": ["professionals", ":professionalId", "availability"],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2025-11-20"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "professionalId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Retorna horários disponíveis de um profissional"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "Create Review",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appointmentId\": \"appointment_id_aqui\",\n  \"rating\": 5,\n  \"comment\": \"Excelente atendimento!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["reviews"]
+            },
+            "description": "Paciente avalia uma consulta concluída"
+          }
+        },
+        {
+          "name": "List Professional Reviews",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/professionals/:professionalId/reviews?page=1&perPage=10",
+              "host": ["{{base_url}}"],
+              "path": ["professionals", ":professionalId", "reviews"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "perPage",
+                  "value": "10"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "professionalId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Lista avaliações de um profissional"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Referrals",
+      "item": [
+        {
+          "name": "Generate Referral Code",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/referrals/generate",
+              "host": ["{{base_url}}"],
+              "path": ["referrals", "generate"]
+            },
+            "description": "Gera código de indicação único para o usuário"
+          }
+        },
+        {
+          "name": "Get My Referrals",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/referrals?status=COMPLETED",
+              "host": ["{{base_url}}"],
+              "path": ["referrals"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "COMPLETED"
+                }
+              ]
+            },
+            "description": "Lista indicações feitas pelo usuário"
+          }
+        },
+        {
+          "name": "Validate Referral Code",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/referrals/validate/:code",
+              "host": ["{{base_url}}"],
+              "path": ["referrals", "validate", ":code"],
+              "variable": [
+                {
+                  "key": "code",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Valida código de indicação (usado no registro)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Get My Notifications",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications?isRead=false&type=APPOINTMENT_REQUESTED&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["notifications"],
+              "query": [
+                {
+                  "key": "isRead",
+                  "value": "false"
+                },
+                {
+                  "key": "type",
+                  "value": "APPOINTMENT_REQUESTED"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Lista notificações do usuário com filtros opcionais"
+          }
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications/unread-count",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "unread-count"]
+            },
+            "description": "Retorna a contagem de notificações não lidas"
+          }
+        },
+        {
+          "name": "Mark All as Read",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications/mark-all-read",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "mark-all-read"]
+            },
+            "description": "Marca todas as notificações do usuário como lidas"
+          }
+        },
+        {
+          "name": "Delete All Notifications",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications/delete-all",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "delete-all"]
+            },
+            "description": "Deleta todas as notificações do usuário"
+          }
+        },
+        {
+          "name": "List All Notifications (Admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications/all?userId=&isRead=false&type=&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "all"],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": ""
+                },
+                {
+                  "key": "isRead",
+                  "value": "false"
+                },
+                {
+                  "key": "type",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Lista todas as notificações do sistema (apenas Admin)"
+          }
+        },
+        {
+          "name": "Get Statistics (Admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications/statistics?startDate=&endDate=&userId=",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "statistics"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": ""
+                },
+                {
+                  "key": "endDate",
+                  "value": ""
+                },
+                {
+                  "key": "userId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Retorna estatísticas de notificações (apenas Admin)"
+          }
+        },
+        {
+          "name": "Get Notification by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications/:notificationId",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", ":notificationId"],
+              "variable": [
+                {
+                  "key": "notificationId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Retorna detalhes de uma notificação específica"
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications/:notificationId/read",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", ":notificationId", "read"],
+              "variable": [
+                {
+                  "key": "notificationId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Marca uma notificação específica como lida"
+          }
+        },
+        {
+          "name": "Delete Notification",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications/:notificationId",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", ":notificationId"],
+              "variable": [
+                {
+                  "key": "notificationId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Deleta uma notificação específica"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "List All Users",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/users?role=PATIENT&page=1&perPage=20",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users"],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "PATIENT"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "perPage",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Lista todos os usuários do sistema (apenas admin)"
+          }
+        },
+        {
+          "name": "Get User Details",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/users/:userId",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Retorna detalhes completos de um usuário (apenas admin)"
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/users/:userId",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Atualiza dados de um usuário (apenas admin)"
+          }
+        },
+        {
+          "name": "Get System Stats",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/stats",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "stats"]
+            },
+            "description": "Retorna estatísticas do sistema (apenas admin)"
+          }
+        },
+        {
+          "name": "Get Audit Logs",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/audit-logs?userId=&action=&page=1&perPage=50",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "audit-logs"],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": ""
+                },
+                {
+                  "key": "action",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "perPage",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Lista logs de auditoria (apenas admin)"
+          }
+        }
+      ]
+    }
+  ]
+}

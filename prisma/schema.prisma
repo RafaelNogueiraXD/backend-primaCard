@@ -1,0 +1,436 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PATIENT
+  PROFESSIONAL
+  ADMIN
+}
+
+enum AppointmentStatus {
+  REQUESTED
+  SCHEDULED
+  CANCELED_BY_PATIENT
+  CANCELED_BY_PROFESSIONAL
+  COMPLETED
+  NO_SHOW_PATIENT
+  NO_SHOW_PROFESSIONAL
+  AUTO_COMPLETED
+}
+
+enum PunctualityFlag {
+  EXACT
+  WITHIN_TOLERANCE
+  LATE
+  NO_SHOW
+}
+
+enum RedemptionStatus {
+  HOLD
+  REDEEMED
+  EXPIRED
+  CANCELED
+  REFUNDED
+}
+
+enum PointsCause {
+  PROCEDURE_COMPLETED
+  REFERRAL_COMPLETED
+  PUNCTUAL
+  EXACT_TIME
+  LATE_CANCEL_PENALTY
+  NO_SHOW_PENALTY
+  REWARD_REDEMPTION
+  ADMIN_ADJUSTMENT
+  REFUND
+}
+
+enum ReferralStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+}
+
+enum NotificationType {
+  APPOINTMENT_REQUESTED
+  APPOINTMENT_ACCEPTED
+  APPOINTMENT_CANCELED
+  APPOINTMENT_REMINDER
+  REVIEW_PENDING
+  POINTS_EARNED
+  REDEMPTION_EXPIRING
+  REDEMPTION_CONFIRMED
+  REFERRAL_COMPLETED
+}
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  phone           String?   @unique
+  passwordHash    String
+  firstName       String
+  lastName        String
+  role            UserRole
+  emailVerified   Boolean   @default(false)
+  phoneVerified   Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  professional            Professional?
+  appointmentsAsPatient   Appointment[]         @relation("PatientAppointments")
+  appointmentsAsProfessional Appointment[]      @relation("ProfessionalAppointments")
+  reviewsWritten          Review[]              @relation("ReviewAuthor")
+  reviewsReceived         Review[]              @relation("ReviewTarget")
+  pointsTransactions      PointTransaction[]
+  redemptions             Redemption[]
+  referralsGiven          Referral[]            @relation("Referrer")
+  referralsReceived       Referral[]            @relation("Referred")
+  notifications           Notification[]
+  auditLogs               AuditLog[]
+  otpCodes                OTPCode[]
+  refreshTokens           RefreshToken[]
+  
+  @@map("users")
+}
+
+model Professional {
+  id                    String    @id @default(uuid())
+  userId                String    @unique
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  registrationNumber    String    @unique  // CRO, CRM, etc
+  specialty             String
+  bio                   String?   @db.Text
+  address               String?
+  city                  String?
+  state                 String?
+  zipCode               String?
+  
+  // Ratings
+  averageRating         Float     @default(0)
+  totalReviews          Int       @default(0)
+  
+  // Schedule settings (JSON)
+  scheduleSettings      Json?     // Working hours, breaks, etc
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relations
+  procedures            Procedure[]
+  appointments          Appointment[]
+  rewards               Reward[]
+  
+  @@map("professionals")
+}
+
+model Procedure {
+  id                    String    @id @default(uuid())
+  professionalId        String
+  professional          Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  
+  name                  String
+  category              String    // e.g., "clareamento", "limpeza"
+  description           String?   @db.Text
+  defaultDurationMinutes Int
+  pointsGeneral         Int
+  pointsCategory        Int
+  version               Int       @default(1)
+  isActive              Boolean   @default(true)
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relations
+  appointments          Appointment[]
+  
+  @@unique([professionalId, name])
+  @@map("procedures")
+}
+
+model Appointment {
+  id                    String            @id @default(uuid())
+  professionalId        String
+  professional          Professional      @relation(fields: [professionalId], references: [id])
+  
+  patientId             String
+  patient               User              @relation("PatientAppointments", fields: [patientId], references: [id])
+  
+  procedureId           String
+  procedure             Procedure         @relation(fields: [procedureId], references: [id])
+  
+  // Snapshot of procedure at time of booking
+  procedureSnapshot     Json
+  
+  status                AppointmentStatus @default(REQUESTED)
+  startsAt              DateTime
+  endsAt                DateTime
+  location              String?
+  
+  // Tracking
+  createdById           String
+  createdBy             User              @relation("ProfessionalAppointments", fields: [createdById], references: [id])
+  canceledById          String?
+  canceledReason        String?           @db.Text
+  canceledAt            DateTime?
+  
+  // Check-in/out
+  checkinAt             DateTime?
+  checkoutAt            DateTime?
+  arrivalMarkedAt       DateTime?
+  punctualityFlag       PunctualityFlag?
+  
+  completedAt           DateTime?
+  
+  // Points granted
+  pointsGrantedAt       DateTime?
+  
+  // Idempotency
+  idempotencyKey        String?           @unique
+  
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  
+  // Relations
+  reviews               Review[]
+  
+  @@index([professionalId, startsAt])
+  @@index([patientId, startsAt])
+  @@index([status])
+  @@map("appointments")
+}
+
+model Review {
+  id                    String    @id @default(uuid())
+  appointmentId         String
+  appointment           Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  
+  authorId              String
+  author                User      @relation("ReviewAuthor", fields: [authorId], references: [id])
+  
+  targetId              String
+  target                User      @relation("ReviewTarget", fields: [targetId], references: [id])
+  
+  rating                Int       // 1-5
+  comment               String?   @db.Text
+  tags                  Json?     // Array of tags
+  
+  isModerated           Boolean   @default(false)
+  moderationNote        String?
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@unique([appointmentId, authorId])
+  @@map("reviews")
+}
+
+model PointTransaction {
+  id                    String      @id @default(uuid())
+  userId                String
+  user                  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  bucket                String      // "general" or category name
+  delta                 Int         // Can be positive or negative
+  cause                 PointsCause
+  
+  referenceType         String?     // "appointment", "redemption", "referral"
+  referenceId           String?
+  
+  metadata              Json?
+  
+  createdAt             DateTime    @default(now())
+  
+  @@index([userId, bucket])
+  @@index([userId, createdAt])
+  @@map("point_transactions")
+}
+
+model Reward {
+  id                    String    @id @default(uuid())
+  professionalId        String?
+  professional          Professional? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  
+  name                  String
+  description           String?   @db.Text
+  costPoints            Int
+  
+  // Bucket restrictions
+  allowedBuckets        Json      // Array of allowed bucket names
+  excludedBuckets       Json      // Array of excluded bucket names
+  
+  isActive              Boolean   @default(true)
+  terms                 String?   @db.Text
+  
+  // Stock management (optional)
+  stockQuantity         Int?
+  stockRemaining        Int?
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relations
+  redemptions           Redemption[]
+  
+  @@map("rewards")
+}
+
+model Redemption {
+  id                    String            @id @default(uuid())
+  rewardId              String
+  reward                Reward            @relation(fields: [rewardId], references: [id])
+  
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id])
+  
+  status                RedemptionStatus  @default(HOLD)
+  
+  // Breakdown of points used per bucket
+  holdBreakdown         Json
+  
+  // OTP for validation
+  otpCodeHash           String?
+  otpExpiresAt          DateTime?
+  
+  requestedAt           DateTime          @default(now())
+  expiresAt             DateTime
+  redeemedAt            DateTime?
+  canceledAt            DateTime?
+  refundedAt            DateTime?
+  
+  // Idempotency
+  idempotencyKey        String?           @unique
+  
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  
+  @@index([userId, status])
+  @@index([status, expiresAt])
+  @@map("redemptions")
+}
+
+model Referral {
+  id                    String          @id @default(uuid())
+  referrerId            String
+  referrer              User            @relation("Referrer", fields: [referrerId], references: [id])
+  
+  referredId            String?
+  referred              User?           @relation("Referred", fields: [referredId], references: [id])
+  
+  // Contact info before user signs up
+  referredEmail         String?
+  referredPhone         String?
+  
+  status                ReferralStatus  @default(PENDING)
+  
+  // When the referred user completes first appointment
+  completedAt           DateTime?
+  awardedAt             DateTime?
+  
+  ruleVersion           String?         // Track which referral rules applied
+  
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  
+  @@index([referrerId, status])
+  @@unique([referrerId, referredEmail])
+  @@map("referrals")
+}
+
+model Notification {
+  id                    String            @id @default(uuid())
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type                  NotificationType
+  title                 String
+  message               String            @db.Text
+  
+  data                  Json?             // Additional data
+  
+  isRead                Boolean           @default(false)
+  readAt                DateTime?
+  
+  createdAt             DateTime          @default(now())
+  
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id                    String    @id @default(uuid())
+  actorId               String?
+  actor                 User?     @relation(fields: [actorId], references: [id])
+  
+  action                String    // CREATE, UPDATE, DELETE, etc
+  entityType            String    // "appointment", "reward", etc
+  entityId              String
+  
+  dataBefore            Json?
+  dataAfter             Json?
+  
+  ipAddress             String?
+  userAgent             String?
+  
+  createdAt             DateTime  @default(now())
+  
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}
+
+model OTPCode {
+  id                    String    @id @default(uuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  codeHash              String
+  purpose               String    // "email_verification", "password_reset", "redemption"
+  
+  expiresAt             DateTime
+  usedAt                DateTime?
+  
+  createdAt             DateTime  @default(now())
+  
+  @@index([userId, purpose])
+  @@map("otp_codes")
+}
+
+model RefreshToken {
+  id                    String    @id @default(uuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  token                 String    @unique @db.VarChar(500)
+  expiresAt             DateTime
+  
+  createdAt             DateTime  @default(now())
+  
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model DomainEvent {
+  id                    String    @id @default(uuid())
+  idempotencyKey        String    @unique
+  type                  String
+  payload               Json
+  processedAt           DateTime?
+  
+  createdAt             DateTime  @default(now())
+  
+  @@index([type, processedAt])
+  @@map("domain_events")
+}

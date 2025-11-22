@@ -1,0 +1,339 @@
+import prisma from '../../config/database';
+import { AuthUtils } from '../../utils/authUtils';
+
+export class UserService {
+  async getProfile(userId: string): Promise<any> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        professional: true,
+      },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return this.sanitizeUser(user);
+  }
+
+  async updateProfile(
+    userId: string,
+    data: {
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+    }
+  ): Promise<any> {
+    // Check if phone is being updated and if it's already in use
+    if (data.phone) {
+      const existingPhone = await prisma.user.findFirst({
+        where: {
+          phone: data.phone,
+          NOT: { id: userId },
+        },
+      });
+
+      if (existingPhone) {
+        throw new Error('Phone number already in use');
+      }
+    }
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data,
+      include: {
+        professional: true,
+      },
+    });
+
+    return this.sanitizeUser(user);
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const isValid = await AuthUtils.comparePassword(currentPassword, user.passwordHash);
+
+    if (!isValid) {
+      throw new Error('Current password is incorrect');
+    }
+
+    const newPasswordHash = await AuthUtils.hashPassword(newPassword);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: newPasswordHash },
+    });
+  }
+
+  async deleteAccount(userId: string): Promise<void> {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isActive: false },
+    });
+  }
+
+  async getPointsBalance(userId: string): Promise<Record<string, number>> {
+    const transactions = await prisma.pointTransaction.findMany({
+      where: { userId },
+      select: { bucket: true, delta: true },
+    });
+
+    const balance: Record<string, number> = {};
+
+    for (const tx of transactions) {
+      if (!balance[tx.bucket]) {
+        balance[tx.bucket] = 0;
+      }
+      balance[tx.bucket] += tx.delta;
+    }
+
+    return balance;
+  }
+
+  async getPointsHistory(
+    userId: string,
+    filters: {
+      bucket?: string;
+      cause?: string;
+      page?: number;
+      perPage?: number;
+    }
+  ): Promise<{ data: any[]; meta: any }> {
+    const page = filters.page || 1;
+    const perPage = filters.perPage || 20;
+    const skip = (page - 1) * perPage;
+
+    const where: any = { userId };
+
+    if (filters.bucket) where.bucket = filters.bucket;
+    if (filters.cause) where.cause = filters.cause;
+
+    const [data, total] = await Promise.all([
+      prisma.pointTransaction.findMany({
+        where,
+        skip,
+        take: perPage,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.pointTransaction.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        page,
+        perPage,
+        total,
+        totalPages: Math.ceil(total / perPage),
+      },
+    };
+  }
+
+  async getMyAppointments(
+    userId: string,
+    filters: {
+      status?: string;
+      startDate?: Date;
+      endDate?: Date;
+      page?: number;
+      perPage?: number;
+    }
+  ): Promise<{ data: any[]; meta: any }> {
+    const page = filters.page || 1;
+    const perPage = filters.perPage || 20;
+    const skip = (page - 1) * perPage;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const where: any = {};
+
+    if (user.role === 'PATIENT') {
+      where.patientId = userId;
+    } else if (user.role === 'PROFESSIONAL') {
+      where.professionalId = userId;
+    }
+
+    if (filters.status) where.status = filters.status;
+    if (filters.startDate || filters.endDate) {
+      where.scheduledFor = {};
+      if (filters.startDate) where.scheduledFor.gte = filters.startDate;
+      if (filters.endDate) where.scheduledFor.lte = filters.endDate;
+    }
+
+    const [data, total] = await Promise.all([
+      prisma.appointment.findMany({
+        where,
+        skip,
+        take: perPage,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          patient: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+            },
+          },
+          professional: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.appointment.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        page,
+        perPage,
+        total,
+        totalPages: Math.ceil(total / perPage),
+      },
+    };
+  }
+
+  async getMyRedemptions(
+    userId: string,
+    filters: {
+      status?: string;
+      page?: number;
+      perPage?: number;
+    }
+  ): Promise<{ data: any[]; meta: any }> {
+    const page = filters.page || 1;
+    const perPage = filters.perPage || 20;
+    const skip = (page - 1) * perPage;
+
+    const where: any = { userId };
+
+    if (filters.status) where.status = filters.status;
+
+    const [data, total] = await Promise.all([
+      prisma.redemption.findMany({
+        where,
+        skip,
+        take: perPage,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          reward: true,
+        },
+      }),
+      prisma.redemption.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        page,
+        perPage,
+        total,
+        totalPages: Math.ceil(total / perPage),
+      },
+    };
+  }
+
+  async getNotifications(
+    userId: string,
+    filters: {
+      isRead?: boolean;
+      type?: string;
+      page?: number;
+      perPage?: number;
+    }
+  ): Promise<{ data: any[]; meta: any }> {
+    const page = filters.page || 1;
+    const perPage = filters.perPage || 20;
+    const skip = (page - 1) * perPage;
+
+    const where: any = { userId };
+
+    if (filters.isRead !== undefined) where.isRead = filters.isRead;
+    if (filters.type) where.type = filters.type;
+
+    const [data, total] = await Promise.all([
+      prisma.notification.findMany({
+        where,
+        skip,
+        take: perPage,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.notification.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        page,
+        perPage,
+        total,
+        totalPages: Math.ceil(total / perPage),
+      },
+    };
+  }
+
+  async markNotificationAsRead(userId: string, notificationId: string): Promise<any> {
+    const notification = await prisma.notification.findFirst({
+      where: {
+        id: notificationId,
+        userId,
+      },
+    });
+
+    if (!notification) {
+      throw new Error('Notification not found');
+    }
+
+    return prisma.notification.update({
+      where: { id: notificationId },
+      data: { isRead: true },
+    });
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<{ count: number }> {
+    const result = await prisma.notification.updateMany({
+      where: {
+        userId,
+        isRead: false,
+      },
+      data: { isRead: true },
+    });
+
+    return { count: result.count };
+  }
+
+  private sanitizeUser(user: any): any {
+    const { passwordHash, ...sanitized } = user;
+    return sanitized;
+  }
+}

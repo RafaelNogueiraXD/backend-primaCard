@@ -1,0 +1,71 @@
+export const AppointmentStatus = {
+  REQUESTED: 'REQUESTED',
+  SCHEDULED: 'SCHEDULED',
+  CANCELED_BY_PATIENT: 'CANCELED_BY_PATIENT',
+  CANCELED_BY_PROFESSIONAL: 'CANCELED_BY_PROFESSIONAL',
+  COMPLETED: 'COMPLETED',
+  NO_SHOW_PATIENT: 'NO_SHOW_PATIENT',
+  NO_SHOW_PROFESSIONAL: 'NO_SHOW_PROFESSIONAL',
+  AUTO_COMPLETED: 'AUTO_COMPLETED',
+} as const;
+
+export const RedemptionStatus = {
+  HOLD: 'HOLD',
+  REDEEMED: 'REDEEMED',
+  EXPIRED: 'EXPIRED',
+  CANCELED: 'CANCELED',
+  REFUNDED: 'REFUNDED',
+} as const;
+
+export const PunctualityFlag = {
+  EXACT: 'EXACT',
+  WITHIN_TOLERANCE: 'WITHIN_TOLERANCE',
+  LATE: 'LATE',
+  NO_SHOW: 'NO_SHOW',
+} as const;
+
+export const PointsCause = {
+  PROCEDURE_COMPLETED: 'PROCEDURE_COMPLETED',
+  REFERRAL_COMPLETED: 'REFERRAL_COMPLETED',
+  PUNCTUAL: 'PUNCTUAL',
+  EXACT_TIME: 'EXACT_TIME',
+  LATE_CANCEL_PENALTY: 'LATE_CANCEL_PENALTY',
+  NO_SHOW_PENALTY: 'NO_SHOW_PENALTY',
+  REWARD_REDEMPTION: 'REWARD_REDEMPTION',
+  ADMIN_ADJUSTMENT: 'ADMIN_ADJUSTMENT',
+  REFUND: 'REFUND',
+} as const;
+
+export const ReferralStatus = {
+  PENDING: 'PENDING',
+  COMPLETED: 'COMPLETED',
+  EXPIRED: 'EXPIRED',
+} as const;
+
+export const NotificationType = {
+  APPOINTMENT_REQUESTED: 'APPOINTMENT_REQUESTED',
+  APPOINTMENT_ACCEPTED: 'APPOINTMENT_ACCEPTED',
+  APPOINTMENT_CANCELED: 'APPOINTMENT_CANCELED',
+  APPOINTMENT_REMINDER: 'APPOINTMENT_REMINDER',
+  REVIEW_PENDING: 'REVIEW_PENDING',
+  POINTS_EARNED: 'POINTS_EARNED',
+  REDEMPTION_EXPIRING: 'REDEMPTION_EXPIRING',
+  REDEMPTION_CONFIRMED: 'REDEMPTION_CONFIRMED',
+  REFERRAL_COMPLETED: 'REFERRAL_COMPLETED',
+} as const;
+
+export const UserRole = {
+  PATIENT: 'PATIENT',
+  PROFESSIONAL: 'PROFESSIONAL',
+  ADMIN: 'ADMIN',
+} as const;
+
+export const SystemEnums = {
+  appointmentStatus: Object.values(AppointmentStatus),
+  redemptionStatus: Object.values(RedemptionStatus),
+  punctualityFlag: Object.values(PunctualityFlag),
+  pointsCause: Object.values(PointsCause),
+  referralStatus: Object.values(ReferralStatus),
+  notificationType: Object.values(NotificationType),
+  userRole: Object.values(UserRole),
+};
