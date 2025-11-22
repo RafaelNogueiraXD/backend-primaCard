@@ -14,12 +14,14 @@ export class AuthUtils {
   }
 
   static generateAccessToken(payload: JWTPayload): string {
+    // @ts-ignore - JWT type issue with expiresIn
     return jwt.sign(payload, config.jwt.secret, {
       expiresIn: config.jwt.expiresIn,
     });
   }
 
   static generateRefreshToken(payload: JWTPayload): string {
+    // @ts-ignore - JWT type issue with expiresIn
     return jwt.sign(payload, config.jwt.refreshSecret, {
       expiresIn: config.jwt.refreshExpiresIn,
     });

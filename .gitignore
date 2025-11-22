@@ -14,8 +14,6 @@ coverage/
 
 # Vercel
 .vercel
-.vercel.json
 
-# Prisma
-prisma/migrations/
-!prisma/migrations/.gitkeep
+# Prisma - Não ignorar migrations para deploy!
+# As migrations devem ser commitadas para funcionar na Vercel
