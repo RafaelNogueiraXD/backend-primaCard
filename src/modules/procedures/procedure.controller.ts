@@ -53,20 +53,31 @@ export class ProcedureController {
   async list(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user!.userId;
+      const role = req.user!.role;
 
-      // Get professional ID from user ID
-      const professional = await prisma.professional.findUnique({
-        where: { userId },
-      });
+      let professionalId: string | undefined;
 
-      if (!professional) {
-        res.status(403).json({
-          errors: [{ message: 'Not authorized - user is not a professional' }],
+      if (role === 'PROFESSIONAL') {
+        // Get professional ID from user ID
+        const professional = await prisma.professional.findUnique({
+          where: { userId },
         });
-        return;
+
+        if (professional) {
+          professionalId = professional.id;
+        }
       }
 
-      const procedures = await procedureService.list(professional.id);
+      // If professionalId is provided, list procedures for that professional
+      // If not (e.g. patient), list all active procedures or handle as needed
+      // For now, let's allow listing all active procedures if no professionalId is specific
+      // But the service method expects a professionalId. 
+      // Let's modify the service to make professionalId optional or handle listing all.
+      
+      // Actually, the requirement is likely for patients to see procedures to book.
+      // If the frontend is calling /procedures without params, it might expect a list of all available procedures.
+      
+      const procedures = await procedureService.list(professionalId); 
 
       res.json({ data: procedures });
     } catch (error: any) {

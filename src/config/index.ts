@@ -27,7 +27,7 @@ export const config = {
   
   rateLimit: {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
-    maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
+    maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '1000', 10),
   },
   
   otp: {
@@ -59,7 +59,7 @@ export const config = {
   adminApiKey: process.env.ADMIN_API_KEY || 'change-me',
   
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    origin: process.env.FRONTEND_URL || 'http://localhost:8080',
   },
   
   logLevel: process.env.LOG_LEVEL || 'info',

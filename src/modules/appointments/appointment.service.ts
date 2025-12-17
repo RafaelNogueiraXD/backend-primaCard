@@ -36,6 +36,11 @@ export class AppointmentService {
     const endsAt = addMinutes(data.startsAt, procedure.defaultDurationMinutes);
 
     // Check for double booking - professional
+    // Ensure dates are valid Date objects
+    if (isNaN(data.startsAt.getTime()) || isNaN(endsAt.getTime())) {
+      throw new Error('Invalid date provided');
+    }
+
     const professionalConflict = await prisma.appointment.findFirst({
       where: {
         professionalId: data.professionalId,
@@ -362,7 +367,17 @@ export class AppointmentService {
         where: { userId: filters.userId },
       });
       if (!professional) {
-        throw new Error('Professional not found');
+        // If user is not a professional, return empty list instead of throwing error
+        // This can happen if a user has PROFESSIONAL role but no professional profile yet
+        return {
+          data: [],
+          meta: {
+            page,
+            perPage,
+            total: 0,
+            totalPages: 0,
+          },
+        };
       }
       where.professionalId = professional.id;
     }

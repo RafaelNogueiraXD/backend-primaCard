@@ -107,4 +107,18 @@ router.get('/statistics', authenticate, (req, res) => controller.getStatistics(r
  */
 router.get('/:id', authenticate, (req, res) => controller.getById(req, res));
 
+/**
+ * @swagger
+ * /referrals/generate:
+ *   post:
+ *     summary: Generate a referral code
+ *     tags: [Referrals]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Referral code generated
+ */
+router.post('/generate', authenticate, (req, res) => controller.generateCode(req, res));
+
 export default router;

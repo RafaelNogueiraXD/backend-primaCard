@@ -186,4 +186,54 @@ router.post(
   authController.verifyOtp.bind(authController)
 );
 
+/**
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Get current user profile
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile
+ */
+router.get('/me', authenticate, authController.getMe.bind(authController));
+
+/**
+ * @swagger
+ * /auth/me:
+ *   patch:
+ *     summary: Update current user profile
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profile updated
+ */
+router.patch(
+  '/me',
+  authenticate,
+  [
+    body('firstName').optional().trim().notEmpty(),
+    body('lastName').optional().trim().notEmpty(),
+    body('phone').optional().trim().notEmpty(),
+  ],
+  validate,
+  authController.updateProfile.bind(authController)
+);
+
 export default router;

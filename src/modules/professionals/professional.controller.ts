@@ -113,4 +113,58 @@ export class ProfessionalController {
       next(error);
     }
   }
+
+  async getDashboard(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.userId;
+      const dashboardData = await this.professionalService.getDashboard(userId);
+      ResponseHandler.success(res, dashboardData);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getClients(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.userId;
+      const clients = await this.professionalService.getClients(userId);
+      ResponseHandler.success(res, clients);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getMyReviews(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.userId;
+      const result = await this.professionalService.getMyReviews(userId);
+      ResponseHandler.success(res, result.data, {
+        ...result.meta,
+        averageRating: result.averageRating,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getScheduleSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.userId;
+      const settings = await this.professionalService.getScheduleSettings(userId);
+      ResponseHandler.success(res, settings);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateScheduleSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.userId;
+      const settings = req.body;
+      const updated = await this.professionalService.updateScheduleSettings(userId, settings);
+      ResponseHandler.success(res, updated);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

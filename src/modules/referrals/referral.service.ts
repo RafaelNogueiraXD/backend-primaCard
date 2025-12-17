@@ -244,4 +244,11 @@ export class ReferralService {
       totalPointsEarned: totalPoints._sum.delta || 0,
     };
   }
+
+  async generateCode(userId: string): Promise<string> {
+    // For now, we can just return the user's ID or a hash of it
+    // In a real implementation, we might want to store this in the DB
+    // or generate a unique short code
+    return userId.substring(0, 8).toUpperCase();
+  }
 }

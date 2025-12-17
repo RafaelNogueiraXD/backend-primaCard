@@ -89,4 +89,31 @@ export class AuthController {
       return ResponseHandler.internalError(res);
     }
   }
+
+  async getMe(req: Request, res: Response): Promise<Response> {
+    try {
+      const userId = req.user!.userId;
+      const user = await authService.getMe(userId);
+      return ResponseHandler.success(res, user);
+    } catch (error) {
+      if (error instanceof Error) {
+        return ResponseHandler.notFound(res, error.message);
+      }
+      return ResponseHandler.internalError(res);
+    }
+  }
+
+  async updateProfile(req: Request, res: Response): Promise<Response> {
+    try {
+      const userId = req.user!.userId;
+      const { firstName, lastName, phone } = req.body;
+      const user = await authService.updateProfile(userId, { firstName, lastName, phone });
+      return ResponseHandler.success(res, user);
+    } catch (error) {
+      if (error instanceof Error) {
+        return ResponseHandler.badRequest(res, error.message);
+      }
+      return ResponseHandler.internalError(res);
+    }
+  }
 }

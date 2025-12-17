@@ -393,4 +393,195 @@ export class ProfessionalService {
           : 0,
     };
   }
+
+  async getDashboard(userId: string): Promise<any> {
+    const professional = await prisma.professional.findUnique({
+      where: { userId },
+      include: { user: true },
+    });
+
+    if (!professional) {
+      throw new Error('Professional not found');
+    }
+
+    const today = new Date();
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    const [
+      todayAppointments,
+      pendingAppointments,
+      monthProcedures,
+      activeClients,
+      totalPointsAwarded
+    ] = await Promise.all([
+      prisma.appointment.findMany({
+        where: {
+          professionalId: professional.id,
+          startsAt: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
+          status: { notIn: ['CANCELED_BY_PATIENT', 'CANCELED_BY_PROFESSIONAL'] },
+        },
+        include: {
+          patient: {
+            select: {
+              firstName: true,
+              lastName: true,
+            }
+          },
+          procedure: true,
+        },
+        orderBy: { startsAt: 'asc' },
+      }),
+      prisma.appointment.count({
+        where: {
+          professionalId: professional.id,
+          status: 'REQUESTED',
+        },
+      }),
+      prisma.appointment.count({
+        where: {
+          professionalId: professional.id,
+          status: 'COMPLETED',
+          startsAt: {
+            gte: startOfMonth,
+            lte: endOfMonth,
+          },
+        },
+      }),
+      prisma.appointment.findMany({
+        where: {
+          professionalId: professional.id,
+          status: 'COMPLETED',
+        },
+        distinct: ['patientId'],
+        select: { patientId: true },
+      }).then(res => res.length),
+      prisma.appointment.findMany({
+        where: {
+          professionalId: professional.id,
+          status: 'COMPLETED',
+        },
+        select: {
+          procedureSnapshot: true,
+        },
+      }).then(res => res.reduce((sum, app) => {
+        const snapshot = app.procedureSnapshot as any;
+        return sum + (snapshot?.pointsGeneral || 0) + (snapshot?.pointsCategory || 0);
+      }, 0)),
+    ]);
+
+    return {
+      stats: {
+        professionalName: `${professional.user.firstName} ${professional.user.lastName}`,
+        activeClients,
+        pendingAppointments,
+        monthProcedures,
+        totalPointsAwarded,
+      },
+      todayAppointments: todayAppointments.map(app => ({
+        id: app.id,
+        patientName: `${app.patient.firstName} ${app.patient.lastName}`,
+        procedureName: app.procedure.name,
+        time: app.startsAt,
+        status: app.status,
+      })),
+      recentProcedures: [],
+    };
+  }
+
+  async getClients(userId: string): Promise<any[]> {
+    const professional = await prisma.professional.findUnique({
+      where: { userId },
+    });
+
+    if (!professional) {
+      throw new Error('Professional not found');
+    }
+
+    const clients = await prisma.appointment.findMany({
+      where: {
+        professionalId: professional.id,
+        status: 'COMPLETED',
+      },
+      distinct: ['patientId'],
+      include: {
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          }
+        }
+      }
+    });
+
+    return clients.map(c => ({
+      ...c.patient,
+      name: `${c.patient.firstName} ${c.patient.lastName}`,
+    }));
+  }
+
+  async getMyReviews(userId: string): Promise<any> {
+    const professional = await prisma.professional.findUnique({
+      where: { userId },
+    });
+
+    if (!professional) {
+      throw new Error('Professional not found');
+    }
+
+    return this.getReviews(professional.id, {});
+  }
+
+  async getScheduleSettings(userId: string): Promise<any> {
+    const professional = await prisma.professional.findUnique({
+      where: { userId },
+      select: { scheduleSettings: true },
+    });
+
+    if (!professional) {
+      throw new Error('Professional not found');
+    }
+
+    // Return default settings if none exist
+    return professional.scheduleSettings || {
+      weeklySchedule: [
+        { day: 0, dayName: 'Domingo', enabled: false, start: '', end: '', break: false, breakStart: '', breakEnd: '' },
+        { day: 1, dayName: 'Segunda', enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 2, dayName: 'Terça', enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 3, dayName: 'Quarta', enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 4, dayName: 'Quinta', enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 5, dayName: 'Sexta', enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 6, dayName: 'Sábado', enabled: false, start: '08:00', end: '12:00', break: false, breakStart: '', breakEnd: '' },
+      ],
+      appointmentDuration: 30,
+      bufferTime: 5,
+      blockedDates: [],
+    };
+  }
+
+  async updateScheduleSettings(userId: string, settings: any): Promise<any> {
+    const professional = await prisma.professional.findUnique({
+      where: { userId },
+    });
+
+    if (!professional) {
+      throw new Error('Professional not found');
+    }
+
+    const updated = await prisma.professional.update({
+      where: { id: professional.id },
+      data: { scheduleSettings: settings },
+      select: { scheduleSettings: true },
+    });
+
+    return updated.scheduleSettings;
+  }
 }

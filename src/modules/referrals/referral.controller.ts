@@ -84,4 +84,17 @@ export class ReferralController {
       });
     }
   }
+
+  async generateCode(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.userId;
+      const code = await referralService.generateCode(userId);
+      res.json({ data: { code } });
+    } catch (error: any) {
+      logger.error('Error generating referral code:', error);
+      res.status(500).json({
+        errors: [{ message: 'Failed to generate referral code' }],
+      });
+    }
+  }
 }

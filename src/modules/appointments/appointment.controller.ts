@@ -9,8 +9,43 @@ export class AppointmentController {
   async create(req: Request, res: Response): Promise<void> {
     try {
       const { professionalId, procedureId, startsAt, idempotencyKey } = req.body;
-      const patientId = req.user!.userId;
-      const createdById = req.user!.userId;
+      const userId = req.user!.userId;
+      const role = req.user!.role;
+      
+      let patientId = userId;
+      
+      // If professional is creating appointment, they must specify patientId
+      if (role === 'PROFESSIONAL') {
+        if (!req.body.patientId) {
+          res.status(400).json({
+            errors: [{ message: 'patientId is required when creating appointment as professional' }],
+          });
+          return;
+        }
+        patientId = req.body.patientId;
+        
+        // Verify professional exists
+        const professional = await prisma.professional.findUnique({
+          where: { userId },
+        });
+        
+        if (!professional) {
+          res.status(403).json({
+            errors: [{ message: 'Professional profile not found' }],
+          });
+          return;
+        }
+        
+        // Ensure professional is booking for themselves
+        if (professionalId !== professional.id) {
+          res.status(403).json({
+            errors: [{ message: 'You can only create appointments for yourself' }],
+          });
+          return;
+        }
+      }
+
+      const createdById = userId;
 
       if (!professionalId || !procedureId || !startsAt) {
         res.status(400).json({

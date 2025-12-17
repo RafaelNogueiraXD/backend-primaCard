@@ -177,4 +177,47 @@ router.put(
  */
 router.get('/statistics', authenticate, professionalController.getStatistics.bind(professionalController));
 
+/**
+ * @swagger
+ * /professionals/schedule-settings:
+ *   get:
+ *     summary: Get professional schedule settings
+ *     tags: [Professionals]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Schedule settings
+ */
+router.get('/schedule-settings', authenticate, professionalController.getScheduleSettings.bind(professionalController));
+
+/**
+ * @swagger
+ * /professionals/schedule-settings:
+ *   put:
+ *     summary: Update professional schedule settings
+ *     tags: [Professionals]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               weeklySchedule:
+ *                 type: array
+ *               appointmentDuration:
+ *                 type: integer
+ *               bufferTime:
+ *                 type: integer
+ *               blockedDates:
+ *                 type: array
+ *     responses:
+ *       200:
+ *         description: Schedule settings updated
+ */
+router.put('/schedule-settings', authenticate, professionalController.updateScheduleSettings.bind(professionalController));
+
 export default router;

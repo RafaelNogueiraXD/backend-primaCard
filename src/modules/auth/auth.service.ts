@@ -239,6 +239,45 @@ export class AuthService {
     ]);
   }
 
+  async getMe(userId: string): Promise<any> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { professional: true },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return this.sanitizeUser(user);
+  }
+
+  async updateProfile(userId: string, data: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+  }): Promise<any> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new Error('User not found');
+
+    if (data.phone && data.phone !== user.phone) {
+      const existing = await prisma.user.findUnique({ where: { phone: data.phone } });
+      if (existing) throw new Error('Phone number already in use');
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone: data.phone,
+      },
+      include: { professional: true },
+    });
+
+    return this.sanitizeUser(updatedUser);
+  }
+
   private generateTokens(user: any): AuthTokens {
     const payload: JWTPayload = {
       userId: user.id,

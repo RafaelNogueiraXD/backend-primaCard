@@ -27,15 +27,32 @@ export class ProcedureService {
     });
   }
 
-  async list(professionalId: string): Promise<any[]> {
+  async list(professionalId?: string): Promise<any[]> {
+    const where: any = {
+      isActive: true,
+    };
+
+    if (professionalId) {
+      where.professionalId = professionalId;
+    }
+
     return prisma.procedure.findMany({
-      where: {
-        professionalId,
-        isActive: true,
-      },
+      where,
       orderBy: {
         name: 'asc',
       },
+      include: {
+        professional: {
+          include: {
+            user: {
+              select: {
+                firstName: true,
+                lastName: true,
+              }
+            }
+          }
+        }
+      }
     });
   }
 
@@ -113,13 +130,7 @@ export class ProcedureService {
     const procedure = await prisma.procedure.findUnique({
       where: { id },
       include: {
-        appointments: {
-          where: {
-            status: {
-              in: ['REQUESTED', 'SCHEDULED'],
-            },
-          },
-        },
+        appointments: true, // Check ALL appointments
       },
     });
 
@@ -131,12 +142,23 @@ export class ProcedureService {
       throw new Error('Not authorized');
     }
 
-    // Prevent deletion if there are active appointments
-    if (procedure.appointments.length > 0) {
+    // If there are NO appointments at all, we can hard delete
+    if (procedure.appointments.length === 0) {
+      return prisma.procedure.delete({
+        where: { id },
+      });
+    }
+
+    // If there are active appointments, prevent deletion
+    const hasActiveAppointments = procedure.appointments.some(
+      (a) => ['REQUESTED', 'SCHEDULED'].includes(a.status)
+    );
+
+    if (hasActiveAppointments) {
       throw new Error('Cannot delete procedure with active appointments. Deactivate it instead.');
     }
 
-    // Soft delete by marking as inactive
+    // If there are only past appointments, soft delete
     return prisma.procedure.update({
       where: { id },
       data: { isActive: false },
