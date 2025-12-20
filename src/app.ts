@@ -2,7 +2,7 @@ import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import rateLimit from 'express-rate-limit';
+// import rateLimit from 'express-rate-limit'; // Disabled for unlimited requests
 import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
 import { config } from './config';
@@ -22,6 +22,7 @@ import referralRoutes from './modules/referrals/referral.routes';
 import redemptionRoutes from './modules/redemptions/redemption.routes';
 import reviewRoutes from './modules/reviews/review.routes';
 import notificationRoutes from './modules/notifications/notification.routes';
+import surveyRoutes from './modules/surveys/survey.routes';
 
 const app: Application = express();
 
@@ -62,14 +63,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined', { stream: { write: (message) => logger.info(message.trim()) } }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: config.rateLimit.windowMs,
-  max: config.rateLimit.maxRequests,
-  message: 'Too many requests from this IP, please try again later',
-});
-
-app.use(limiter);
+// Rate limiting - DISABLED for unlimited requests
+// const limiter = rateLimit({
+//   windowMs: config.rateLimit.windowMs,
+//   max: config.rateLimit.maxRequests,
+//   message: 'Too many requests from this IP, please try again later',
+// });
+// app.use(limiter);
 
 // Health check
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -99,6 +99,7 @@ apiRouter.use('/referrals', referralRoutes);
 apiRouter.use('/redemptions', redemptionRoutes);
 apiRouter.use('/reviews', reviewRoutes);
 apiRouter.use('/notifications', notificationRoutes);
+apiRouter.use('/surveys', surveyRoutes);
 
 app.use(`/api/${config.apiVersion}`, apiRouter);
 

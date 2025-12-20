@@ -133,7 +133,8 @@ export class ProfessionalService {
 
   async getAvailability(
     professionalId: string,
-    date: Date
+    date: Date,
+    procedureId?: string
   ): Promise<{ availableSlots: string[] }> {
     const professional = await prisma.professional.findUnique({
       where: { id: professionalId },
@@ -141,6 +142,16 @@ export class ProfessionalService {
 
     if (!professional) {
       throw new Error('Professional not found');
+    }
+
+    let duration = 30;
+    if (procedureId) {
+      const procedure = await prisma.procedure.findUnique({
+        where: { id: procedureId },
+      });
+      if (procedure) {
+        duration = procedure.defaultDurationMinutes;
+      }
     }
 
     const startOfDay = new Date(date);
@@ -177,11 +188,19 @@ export class ProfessionalService {
 
     while (currentSlot < workDayEnd) {
       const slotTime = currentSlot.toISOString();
+      const slotEnd = new Date(currentSlot.getTime() + duration * 60000);
+
+      if (slotEnd > workDayEnd) {
+        currentSlot = new Date(currentSlot.getTime() + 30 * 60000);
+        continue;
+      }
       
       const isBooked = appointments.some((apt) => {
         const aptStart = new Date(apt.startsAt);
         const aptEnd = new Date(apt.endsAt);
-        return currentSlot >= aptStart && currentSlot < aptEnd;
+        
+        // Check for overlap: SlotStart < AptEnd AND SlotEnd > AptStart
+        return currentSlot < aptEnd && slotEnd > aptStart;
       });
 
       if (!isBooked) {
@@ -401,6 +420,21 @@ export class ProfessionalService {
     });
 
     if (!professional) {
+      // Check if user exists and is professional
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user && user.role === 'PROFESSIONAL') {
+        return {
+          stats: {
+            professionalName: `${user.firstName} ${user.lastName}`,
+            activeClients: 0,
+            pendingAppointments: 0,
+            monthProcedures: 0,
+            totalPointsAwarded: 0,
+          },
+          todayAppointments: [],
+          recentProcedures: [],
+        };
+      }
       throw new Error('Professional not found');
     }
 
@@ -541,17 +575,21 @@ export class ProfessionalService {
   }
 
   async getScheduleSettings(userId: string): Promise<any> {
-    const professional = await prisma.professional.findUnique({
-      where: { userId },
-      select: { scheduleSettings: true },
+    // First check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
     });
 
-    if (!professional) {
-      throw new Error('Professional not found');
+    if (!user) {
+      throw new Error('User not found');
     }
 
-    // Return default settings if none exist
-    return professional.scheduleSettings || {
+    if (user.role !== 'PROFESSIONAL') {
+      throw new Error('User is not a professional');
+    }
+
+    // Default settings to return
+    const defaultSettings = {
       weeklySchedule: [
         { day: 0, dayName: 'Domingo', enabled: false, start: '', end: '', break: false, breakStart: '', breakEnd: '' },
         { day: 1, dayName: 'Segunda', enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
@@ -565,6 +603,32 @@ export class ProfessionalService {
       bufferTime: 5,
       blockedDates: [],
     };
+
+    // Try to get professional record with schedule settings
+    let professional = await prisma.professional.findUnique({
+      where: { userId },
+      select: { scheduleSettings: true },
+    });
+
+    // If no professional record exists, create one with default settings
+    if (!professional) {
+      professional = await prisma.professional.create({
+        data: {
+          userId: user.id,
+          registrationNumber: `TEMP-${userId.substring(0, 8)}-${Date.now()}`, // Unique placeholder
+          specialty: 'Não informado', // Placeholder
+          scheduleSettings: defaultSettings,
+        },
+        select: { scheduleSettings: true },
+      });
+    }
+
+    // If no settings, return defaults
+    if (!professional.scheduleSettings) {
+      return defaultSettings;
+    }
+
+    return professional.scheduleSettings;
   }
 
   async updateScheduleSettings(userId: string, settings: any): Promise<any> {
@@ -573,6 +637,24 @@ export class ProfessionalService {
     });
 
     if (!professional) {
+      // Check if user exists and is professional
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (user && user.role === 'PROFESSIONAL') {
+        // Create professional record
+        const newProfessional = await prisma.professional.create({
+          data: {
+            userId: user.id,
+            registrationNumber: `TEMP-${userId.substring(0, 8)}-${Date.now()}`, // Unique placeholder
+            specialty: 'Não informado', // Placeholder
+            scheduleSettings: settings,
+          },
+        });
+        return newProfessional.scheduleSettings;
+      }
+
       throw new Error('Professional not found');
     }
 

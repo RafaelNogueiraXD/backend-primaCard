@@ -76,10 +76,31 @@ export class RewardService {
     };
   }
 
+  async getById(rewardId: string): Promise<any> {
+    return prisma.reward.findUnique({
+      where: { id: rewardId },
+      include: {
+        professional: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   async redeem(
     rewardId: string,
     userId: string,
-    idempotencyKey?: string
+    idempotencyKey?: string,
+    customBreakdown?: { [bucket: string]: number }
   ): Promise<any> {
     // Check idempotency
     if (idempotencyKey) {
@@ -102,16 +123,37 @@ export class RewardService {
       throw new Error('Reward out of stock');
     }
 
-    // Check if user can afford
-    const affordability = await pointsService.canAfford(
-      userId,
-      reward.costPoints,
-      reward.allowedBuckets as string[],
-      reward.excludedBuckets as string[]
-    );
+    let breakdown: { [bucket: string]: number };
 
-    if (!affordability.canAfford) {
-      throw new Error('Insufficient points');
+    // If custom breakdown provided, validate it
+    if (customBreakdown) {
+      const validation = await this.validateCustomBreakdown(
+        customBreakdown,
+        userId,
+        reward.costPoints,
+        reward.allowedBuckets as string[],
+        reward.excludedBuckets as string[]
+      );
+
+      if (!validation.valid) {
+        throw new Error(validation.error || 'Invalid points breakdown');
+      }
+
+      breakdown = customBreakdown;
+    } else {
+      // Use automatic calculation
+      const affordability = await pointsService.canAfford(
+        userId,
+        reward.costPoints,
+        reward.allowedBuckets as string[],
+        reward.excludedBuckets as string[]
+      );
+
+      if (!affordability.canAfford) {
+        throw new Error('Insufficient points');
+      }
+
+      breakdown = affordability.breakdown!;
     }
 
     // Create redemption with transaction
@@ -132,7 +174,7 @@ export class RewardService {
           rewardId,
           userId,
           status: 'HOLD',
-          holdBreakdown: affordability.breakdown!,
+          holdBreakdown: breakdown,
           expiresAt,
           idempotencyKey,
         },
@@ -141,10 +183,60 @@ export class RewardService {
       return newRedemption;
     });
 
-    // Deduct points
-    await pointsService.deductPoints(affordability.breakdown!, userId, redemption.id);
+    // Deduct points using the breakdown
+    await pointsService.deductPoints(breakdown, userId, redemption.id);
 
     return redemption;
+  }
+
+  private async validateCustomBreakdown(
+    breakdown: { [bucket: string]: number },
+    userId: string,
+    cost: number,
+    allowedBuckets: string[],
+    excludedBuckets: string[]
+  ): Promise<{ valid: boolean; error?: string }> {
+    // Get user's balance
+    const balances = await pointsService.getBalance(userId);
+
+    // Calculate total from breakdown
+    const total = Object.values(breakdown).reduce((sum, val) => sum + val, 0);
+
+    // Check if total matches cost
+    if (total !== cost) {
+      return { valid: false, error: `Total points (${total}) must equal cost (${cost})` };
+    }
+
+    // Validate each bucket
+    for (const [bucket, amount] of Object.entries(breakdown)) {
+      if (amount < 0) {
+        return { valid: false, error: `Amount for ${bucket} cannot be negative` };
+      }
+
+      if (amount === 0) continue; // Skip zero amounts
+
+      // Check if bucket exists in user's balance
+      if (!balances[bucket]) {
+        return { valid: false, error: `Invalid bucket: ${bucket}` };
+      }
+
+      // Check if user has enough points in this bucket
+      if (balances[bucket] < amount) {
+        return { valid: false, error: `Insufficient points in ${bucket} bucket (have: ${balances[bucket]}, need: ${amount})` };
+      }
+
+      // Check if bucket is allowed
+      if (allowedBuckets.length > 0 && !allowedBuckets.includes(bucket)) {
+        return { valid: false, error: `Bucket ${bucket} is not allowed for this reward` };
+      }
+
+      // Check if bucket is excluded
+      if (excludedBuckets.includes(bucket)) {
+        return { valid: false, error: `Bucket ${bucket} is excluded from this reward` };
+      }
+    }
+
+    return { valid: true };
   }
 
   async confirm(

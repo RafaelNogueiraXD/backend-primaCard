@@ -157,4 +157,14 @@ export class UserController {
       next(error);
     }
   }
+
+  async getReferralCode(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.userId;
+      const result = await this.userService.getReferralCode(userId);
+      ResponseHandler.success(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

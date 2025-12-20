@@ -15,6 +15,8 @@ export class AuthService {
     // Professional-specific fields
     registrationNumber?: string;
     specialty?: string;
+    // Referral code
+    referralCode?: string;
   }): Promise<{ user: any; tokens: AuthTokens }> {
     // Check if user already exists
     const existing = await prisma.user.findFirst({
@@ -33,6 +35,21 @@ export class AuthService {
       if (existing.phone === data.phone) {
         throw new Error('Phone number already registered');
       }
+    }
+
+    // Validate referral code if provided
+    let referrer = null;
+    if (data.referralCode) {
+      // Use raw query as workaround for TS not recognizing the referralCode field
+      const result: any[] = await prisma.$queryRaw`
+        SELECT id, firstName, lastName FROM users WHERE referralCode = ${data.referralCode} LIMIT 1
+      `;
+      
+      if (result.length === 0) {
+        throw new Error('Invalid referral code');
+      }
+      
+      referrer = result[0];
     }
 
     const passwordHash = await AuthUtils.hashPassword(data.password);
@@ -61,6 +78,35 @@ export class AuthService {
             userId: newUser.id,
             registrationNumber: data.registrationNumber,
             specialty: data.specialty,
+          },
+        });
+      }
+
+      // Create referral record if referral code was used
+      if (referrer) {
+        await tx.referral.create({
+          data: {
+            referrerId: referrer.id,
+            referredId: newUser.id,
+            referredEmail: newUser.email,
+            referredPhone: newUser.phone,
+            status: 'PENDING', // User has registered, pending first appointment
+          },
+        });
+
+        // Award points to referrer immediately upon registration
+        await tx.pointTransaction.create({
+          data: {
+            userId: referrer.id,
+            bucket: 'general',
+            delta: config.referral.pointsGeneral,
+            cause: 'REFERRAL_COMPLETED',
+            referenceType: 'referral',
+            referenceId: newUser.id,
+            metadata: {
+              referredName: `${newUser.firstName} ${newUser.lastName}`,
+              referredEmail: newUser.email,
+            },
           },
         });
       }

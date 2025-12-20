@@ -284,4 +284,30 @@ router.patch('/notifications/:notificationId/read', userController.markNotificat
  */
 router.patch('/notifications/read-all', userController.markAllNotificationsAsRead.bind(userController));
 
+/**
+ * @swagger
+ * /users/referral-code:
+ *   get:
+ *     summary: Get or generate user's referral code
+ *     description: Returns existing referral code or generates a new unique one
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Referral code retrieved or generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     referralCode:
+ *                       type: string
+ *                       example: RAFNOG1234
+ */
+router.get('/referral-code', userController.getReferralCode.bind(userController));
+
 export default router;

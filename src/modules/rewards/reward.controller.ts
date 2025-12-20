@@ -12,9 +12,9 @@ export class RewardController {
       const role = req.user!.role;
       const { name, description, costPoints, allowedBuckets, excludedBuckets, terms, stockQuantity } = req.body;
 
-      if (!name || !costPoints || !allowedBuckets || !excludedBuckets) {
+      if (!name || !costPoints) {
         res.status(400).json({
-          errors: [{ message: 'name, costPoints, allowedBuckets, and excludedBuckets are required' }],
+          errors: [{ message: 'name and costPoints are required' }],
         });
         return;
       }
@@ -83,13 +83,34 @@ export class RewardController {
     }
   }
 
+  async getById(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const reward = await rewardService.getById(id);
+
+      if (!reward) {
+        res.status(404).json({
+          errors: [{ message: 'Reward not found' }],
+        });
+        return;
+      }
+
+      res.json({ data: reward });
+    } catch (error: any) {
+      logger.error('Error getting reward:', error);
+      res.status(500).json({
+        errors: [{ message: 'Failed to get reward' }],
+      });
+    }
+  }
+
   async redeem(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const userId = req.user!.userId;
-      const { idempotencyKey } = req.body;
+      const { idempotencyKey, customBreakdown } = req.body;
 
-      const redemption = await rewardService.redeem(id, userId, idempotencyKey);
+      const redemption = await rewardService.redeem(id, userId, idempotencyKey, customBreakdown);
 
       logger.info(`Reward redeemed: ${id} by user ${userId}`);
       res.status(201).json({ data: redemption });

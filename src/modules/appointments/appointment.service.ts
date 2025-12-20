@@ -3,9 +3,11 @@ import { addMinutes, differenceInMinutes, differenceInHours } from '../../utils/
 import { config } from '../../config';
 import { PointsService } from '../points/points.service';
 import { ReferralService } from '../referrals/referral.service';
+import { NotificationService } from '../notifications/notification.service';
 
 const pointsService = new PointsService();
 const referralService = new ReferralService();
+const notificationService = new NotificationService();
 
 export class AppointmentService {
   async create(data: {
@@ -126,10 +128,26 @@ export class AppointmentService {
       throw new Error('Appointment cannot be accepted in current state');
     }
 
-    return prisma.appointment.update({
+    const updated = await prisma.appointment.update({
       where: { id: appointmentId },
       data: { status: 'SCHEDULED' },
     });
+
+    // Notify patient
+    try {
+      const snapshot = appointment.procedureSnapshot as any;
+      await notificationService.create({
+        userId: appointment.patientId,
+        type: 'APPOINTMENT_ACCEPTED',
+        title: 'Consulta Confirmada',
+        message: `Sua consulta para ${snapshot?.name || 'procedimento'} foi confirmada pelo especialista.`,
+        data: { appointmentId }
+      });
+    } catch (error) {
+      console.error('Failed to create notification for appointment acceptance:', error);
+    }
+
+    return updated;
   }
 
   async cancel(
@@ -383,7 +401,11 @@ export class AppointmentService {
     }
 
     if (filters.status) {
-      where.status = filters.status;
+      if (filters.status.includes(',')) {
+        where.status = { in: filters.status.split(',') };
+      } else {
+        where.status = filters.status;
+      }
     }
 
     if (filters.from || filters.to) {
@@ -402,6 +424,7 @@ export class AppointmentService {
           professional: { include: { user: true } },
           patient: true,
           procedure: true,
+          reviews: true,
         },
       }),
       prisma.appointment.count({ where }),
@@ -416,5 +439,220 @@ export class AppointmentService {
         totalPages: Math.ceil(total / perPage),
       },
     };
+  }
+
+  /**
+   * Get available time slots for a professional on a specific date
+   */
+  async getAvailableSlots(
+    professionalId: string,
+    date: Date,
+    procedureId?: string
+  ): Promise<{ slots: Array<{ start: string; end: string; available: boolean }> }> {
+    // Get the professional
+    const professional = await prisma.professional.findUnique({
+      where: { id: professionalId },
+      include: { user: true },
+    });
+
+    if (!professional) {
+      throw new Error('Professional not found');
+    }
+
+    // Get schedule settings
+    const scheduleSettings = professional.scheduleSettings as any || {
+      weeklySchedule: [
+        { day: 0, enabled: false },
+        { day: 1, enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 2, enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 3, enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 4, enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 5, enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 6, enabled: false },
+      ],
+      appointmentDuration: 30,
+      bufferTime: 5,
+    };
+
+    // Get procedure duration or use default
+    let slotDuration = scheduleSettings.appointmentDuration || 30;
+    
+    if (procedureId) {
+      const procedure = await prisma.procedure.findUnique({
+        where: { id: procedureId },
+      });
+      if (procedure) {
+        slotDuration = procedure.defaultDurationMinutes;
+      }
+    }
+
+    const bufferTime = scheduleSettings.bufferTime || 5;
+
+    // Get the day of week (0 = Sunday, 6 = Saturday)
+    const dayOfWeek = date.getDay();
+    const daySchedule = scheduleSettings.weeklySchedule?.find((d: any) => d.day === dayOfWeek);
+
+    // If day is not enabled, return empty
+    if (!daySchedule || !daySchedule.enabled) {
+      return { slots: [] };
+    }
+
+    // Check if date is blocked
+    const dateString = date.toISOString().split('T')[0];
+    const blockedDates = scheduleSettings.blockedDates || [];
+    const isBlocked = blockedDates.some((b: any) => b.date === dateString);
+    
+    if (isBlocked) {
+      return { slots: [] };
+    }
+
+    // Parse work hours
+    const [startHour, startMin] = daySchedule.start.split(':').map(Number);
+    const [endHour, endMin] = daySchedule.end.split(':').map(Number);
+
+    // Get all existing appointments for this professional on this date
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const existingAppointments = await prisma.appointment.findMany({
+      where: {
+        professionalId,
+        startsAt: { gte: startOfDay, lte: endOfDay },
+        status: { notIn: ['CANCELED_BY_PATIENT', 'CANCELED_BY_PROFESSIONAL', 'NO_SHOW_PATIENT', 'NO_SHOW_PROFESSIONAL'] },
+      },
+      orderBy: { startsAt: 'asc' },
+    });
+
+    // Generate all possible slots
+    const slots: Array<{ start: string; end: string; available: boolean }> = [];
+    
+    let currentTime = new Date(date);
+    currentTime.setHours(startHour, startMin, 0, 0);
+    
+    const workEndTime = new Date(date);
+    workEndTime.setHours(endHour, endMin, 0, 0);
+
+    // Parse break times if applicable
+    let breakStart: Date | null = null;
+    let breakEnd: Date | null = null;
+    
+    if (daySchedule.break && daySchedule.breakStart && daySchedule.breakEnd) {
+      const [breakStartHour, breakStartMin] = daySchedule.breakStart.split(':').map(Number);
+      const [breakEndHour, breakEndMin] = daySchedule.breakEnd.split(':').map(Number);
+      
+      breakStart = new Date(date);
+      breakStart.setHours(breakStartHour, breakStartMin, 0, 0);
+      
+      breakEnd = new Date(date);
+      breakEnd.setHours(breakEndHour, breakEndMin, 0, 0);
+    }
+
+    while (currentTime < workEndTime) {
+      const slotStart = new Date(currentTime);
+      const slotEnd = addMinutes(slotStart, slotDuration);
+      
+      // Check if slot ends after work hours
+      if (slotEnd > workEndTime) {
+        break;
+      }
+
+      const startString = `${slotStart.getHours().toString().padStart(2, '0')}:${slotStart.getMinutes().toString().padStart(2, '0')}`;
+      const endString = `${slotEnd.getHours().toString().padStart(2, '0')}:${slotEnd.getMinutes().toString().padStart(2, '0')}`;
+
+      // Check if slot is during break
+      let isDuringBreak = false;
+      if (breakStart && breakEnd) {
+        isDuringBreak = (slotStart < breakEnd && slotEnd > breakStart);
+      }
+
+      // Check if slot conflicts with existing appointments
+      let hasConflict = false;
+      for (const appt of existingAppointments) {
+        const apptStart = new Date(appt.startsAt);
+        const apptEnd = new Date(appt.endsAt);
+        
+        // Add buffer time consideration
+        const apptStartWithBuffer = addMinutes(apptStart, -bufferTime);
+        const apptEndWithBuffer = addMinutes(apptEnd, bufferTime);
+        
+        if (slotStart < apptEndWithBuffer && slotEnd > apptStartWithBuffer) {
+          hasConflict = true;
+          break;
+        }
+      }
+
+      // Check if slot is in the past
+      const now = new Date();
+      const isPast = slotStart < now;
+
+      slots.push({
+        start: startString,
+        end: endString,
+        available: !isDuringBreak && !hasConflict && !isPast,
+      });
+
+      // Move to next slot (slot duration + buffer)
+      currentTime = addMinutes(currentTime, slotDuration + bufferTime);
+    }
+
+    return { slots };
+  }
+
+  /**
+   * Get available dates for a professional in a date range
+   */
+  async getAvailableDates(
+    professionalId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<{ dates: Array<{ date: string; hasAvailableSlots: boolean }> }> {
+    const professional = await prisma.professional.findUnique({
+      where: { id: professionalId },
+    });
+
+    if (!professional) {
+      throw new Error('Professional not found');
+    }
+
+    const scheduleSettings = professional.scheduleSettings as any || {
+      weeklySchedule: [
+        { day: 0, enabled: false },
+        { day: 1, enabled: true },
+        { day: 2, enabled: true },
+        { day: 3, enabled: true },
+        { day: 4, enabled: true },
+        { day: 5, enabled: true },
+        { day: 6, enabled: false },
+      ],
+      blockedDates: [],
+    };
+
+    const blockedDates = new Set((scheduleSettings.blockedDates || []).map((b: any) => b.date));
+    const dates: Array<{ date: string; hasAvailableSlots: boolean }> = [];
+
+    const current = new Date(startDate);
+    const end = new Date(endDate);
+
+    while (current <= end) {
+      const dateString = current.toISOString().split('T')[0];
+      const dayOfWeek = current.getDay();
+      const daySchedule = scheduleSettings.weeklySchedule?.find((d: any) => d.day === dayOfWeek);
+
+      const isEnabled = daySchedule?.enabled || false;
+      const isBlocked = blockedDates.has(dateString);
+      const isPast = current < new Date(new Date().toISOString().split('T')[0]);
+
+      dates.push({
+        date: dateString,
+        hasAvailableSlots: isEnabled && !isBlocked && !isPast,
+      });
+
+      current.setDate(current.getDate() + 1);
+    }
+
+    return { dates };
   }
 }

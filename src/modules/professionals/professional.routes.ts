@@ -38,6 +38,34 @@ router.get('/', professionalController.list.bind(professionalController));
 
 /**
  * @swagger
+ * /professionals/statistics:
+ *   get:
+ *     summary: Get professional statistics
+ *     tags: [Professionals]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Professional statistics
+ */
+router.get('/statistics', authenticate, professionalController.getStatistics.bind(professionalController));
+
+/**
+ * @swagger
+ * /professionals/schedule-settings:
+ *   get:
+ *     summary: Get professional schedule settings
+ *     tags: [Professionals]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Schedule settings
+ */
+router.get('/schedule-settings', authenticate, professionalController.getScheduleSettings.bind(professionalController));
+
+/**
+ * @swagger
  * /professionals/{professionalId}:
  *   get:
  *     summary: Get professional details
@@ -162,34 +190,6 @@ router.put(
   validate,
   professionalController.updateProfile.bind(professionalController)
 );
-
-/**
- * @swagger
- * /professionals/statistics:
- *   get:
- *     summary: Get professional statistics
- *     tags: [Professionals]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Professional statistics
- */
-router.get('/statistics', authenticate, professionalController.getStatistics.bind(professionalController));
-
-/**
- * @swagger
- * /professionals/schedule-settings:
- *   get:
- *     summary: Get professional schedule settings
- *     tags: [Professionals]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Schedule settings
- */
-router.get('/schedule-settings', authenticate, professionalController.getScheduleSettings.bind(professionalController));
 
 /**
  * @swagger

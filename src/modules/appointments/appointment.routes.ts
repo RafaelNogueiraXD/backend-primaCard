@@ -85,6 +85,73 @@ router.get('/', authenticate, (req, res) => controller.list(req, res));
 
 /**
  * @swagger
+ * /appointments/available-slots/{professionalId}:
+ *   get:
+ *     summary: Get available time slots for a professional on a specific date
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: professionalId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *       - in: query
+ *         name: date
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Date in YYYY-MM-DD format
+ *       - in: query
+ *         name: procedureId
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Optional procedure ID to get duration
+ *     responses:
+ *       200:
+ *         description: List of available time slots
+ */
+router.get('/available-slots/:professionalId', authenticate, (req, res) => controller.getAvailableSlots(req, res));
+
+/**
+ * @swagger
+ * /appointments/available-dates/{professionalId}:
+ *   get:
+ *     summary: Get available dates for a professional in a date range
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: professionalId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *       - in: query
+ *         name: startDate
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: endDate
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *     responses:
+ *       200:
+ *         description: List of dates with availability status
+ */
+router.get('/available-dates/:professionalId', authenticate, (req, res) => controller.getAvailableDates(req, res));
+
+/**
+ * @swagger
  * /appointments/{id}:
  *   get:
  *     summary: Get appointment details

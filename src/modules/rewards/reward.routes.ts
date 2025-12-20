@@ -90,6 +90,27 @@ router.get('/', (req, res) => controller.list(req, res));
 
 /**
  * @swagger
+ * /rewards/{id}:
+ *   get:
+ *     summary: Get reward details by ID
+ *     tags: [Rewards]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Reward details
+ *       404:
+ *         description: Reward not found
+ */
+router.get('/:id', (req, res) => controller.getById(req, res));
+
+/**
+ * @swagger
  * /rewards/{id}/redeem:
  *   post:
  *     summary: Redeem a reward

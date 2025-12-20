@@ -52,6 +52,8 @@ enum PointsCause {
   REWARD_REDEMPTION
   ADMIN_ADJUSTMENT
   REFUND
+  REVIEW_RATING
+  SURVEY_RESPONSE
 }
 
 enum ReferralStatus {
@@ -80,6 +82,7 @@ model User {
   firstName       String
   lastName        String
   role            UserRole
+  referralCode    String?   @unique  // Código único de indicação do usuário
   emailVerified   Boolean   @default(false)
   phoneVerified   Boolean   @default(false)
   isActive        Boolean   @default(true)
@@ -100,6 +103,8 @@ model User {
   auditLogs               AuditLog[]
   otpCodes                OTPCode[]
   refreshTokens           RefreshToken[]
+  surveysCreated          Survey[]              @relation("SurveyCreatedBy")
+  surveyResponses         SurveyResponse[]      @relation("SurveyRespondent")
   
   @@map("users")
 }
@@ -222,9 +227,28 @@ model Review {
   targetId              String
   target                User      @relation("ReviewTarget", fields: [targetId], references: [id])
   
-  rating                Int       // 1-5
+  // Main rating
+  rating                Int       // 1-5 overall rating
   comment               String?   @db.Text
   tags                  Json?     // Array of tags
+  
+  // Additional feedback questions
+  wasLate               Boolean?  // Did the person being reviewed arrive late?
+  lateMinutes           Int?      // How many minutes late (if wasLate is true)
+  wouldRecommend        Boolean?  // Would you recommend this professional/patient?
+  serviceQuality        Int?      // 1-5 rating for service quality (for patient reviewing professional)
+  communication         Int?      // 1-5 rating for communication
+  cleanliness           Int?      // 1-5 rating for cleanliness/hygiene (for patient reviewing professional)
+  punctualityRating     Int?      // 1-5 rating for punctuality
+  
+  // Professional-specific feedback (when professional reviews patient)
+  patientCooperation    Int?      // 1-5 rating for patient cooperation
+  followedInstructions  Boolean?  // Did patient follow pre-appointment instructions?
+  
+  // Patient-specific feedback (when patient reviews professional)
+  waitingTime           Int?      // Minutes waited beyond scheduled time
+  explanationClarity    Int?      // 1-5 rating for how well the procedure was explained
+  painManagement        Int?      // 1-5 rating for pain management
   
   isModerated           Boolean   @default(false)
   moderationNote        String?
@@ -234,6 +258,42 @@ model Review {
   
   @@unique([appointmentId, authorId])
   @@map("reviews")
+}
+
+model Survey {
+  id                    String      @id @default(uuid())
+  title                 String
+  description           String?     @db.Text
+  isActive              Boolean     @default(true)
+  targetAudience        String      @default("ALL") // ALL, PATIENTS, PROFESSIONALS
+  questions             Json        // Array of survey questions
+  
+  createdById           String
+  createdBy             User        @relation("SurveyCreatedBy", fields: [createdById], references: [id])
+  
+  responses             SurveyResponse[]
+  
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  
+  @@map("surveys")
+}
+
+model SurveyResponse {
+  id                    String      @id @default(uuid())
+  surveyId              String
+  survey                Survey      @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  
+  respondentId          String
+  respondent            User        @relation("SurveyRespondent", fields: [respondentId], references: [id])
+  
+  answers               Json        // Array of answers matching the survey questions
+  
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  
+  @@unique([surveyId, respondentId])
+  @@map("survey_responses")
 }
 
 model PointTransaction {

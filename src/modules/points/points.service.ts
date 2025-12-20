@@ -181,25 +181,30 @@ export class PointsService {
     let remaining = cost;
     const breakdown: { [bucket: string]: number } = {};
 
-    // Try to use specific category buckets first
-    const specificBuckets = usableBuckets.filter(b => b !== 'general');
-    for (const bucket of specificBuckets) {
-      if (remaining <= 0) break;
-
-      const available = balances[bucket];
-      const toUse = Math.min(available, remaining);
-
-      breakdown[bucket] = toUse;
-      remaining -= toUse;
-    }
-
-    // Then use general bucket
+    // Priority 1: Use general bucket first (unless excluded)
     if (remaining > 0 && usableBuckets.includes('general')) {
       const available = balances['general'];
       const toUse = Math.min(available, remaining);
 
       breakdown['general'] = toUse;
       remaining -= toUse;
+    }
+
+    // Priority 2: Use specific category buckets, ordered by balance (highest first)
+    if (remaining > 0) {
+      const specificBuckets = usableBuckets
+        .filter(b => b !== 'general')
+        .sort((a, b) => balances[b] - balances[a]); // Sort descending by balance
+
+      for (const bucket of specificBuckets) {
+        if (remaining <= 0) break;
+
+        const available = balances[bucket];
+        const toUse = Math.min(available, remaining);
+
+        breakdown[bucket] = toUse;
+        remaining -= toUse;
+      }
     }
 
     return {
@@ -232,5 +237,42 @@ export class PointsService {
         referenceId,
       });
     }
+  }
+
+  async getAvailableForReward(userId: string, rewardId: string): Promise<{
+    totalAvailable: number;
+    balances: { [bucket: string]: number };
+    excludedBuckets: string[];
+  }> {
+    // Get reward to check excluded buckets
+    const reward = await prisma.reward.findUnique({
+      where: { id: rewardId },
+      select: { excludedBuckets: true },
+    });
+
+    if (!reward) {
+      throw new Error('Reward not found');
+    }
+
+    // Get user's point balances
+    const balances = await this.getBalance(userId);
+
+    // Calculate total excluding restricted buckets
+    const excludedBuckets = (reward.excludedBuckets || []) as string[];
+    let totalAvailable = 0;
+    const availableBalances: { [bucket: string]: number } = {};
+
+    for (const [bucket, amount] of Object.entries(balances)) {
+      if (!excludedBuckets.includes(bucket)) {
+        totalAvailable += amount;
+        availableBalances[bucket] = amount;
+      }
+    }
+
+    return {
+      totalAvailable,
+      balances: availableBalances,
+      excludedBuckets,
+    };
   }
 }

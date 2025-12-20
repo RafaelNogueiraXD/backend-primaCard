@@ -11,7 +11,26 @@ export class ReviewController {
   async create(req: Request, res: Response): Promise<void> {
     try {
       const { userId } = req.user as any;
-      const { appointmentId, targetId, rating, comment, tags } = req.body;
+      const { 
+        appointmentId, 
+        targetId, 
+        rating, 
+        comment, 
+        tags,
+        // Feedback fields matching schema
+        wasLate,
+        lateMinutes,
+        wouldRecommend,
+        serviceQuality,
+        communication,
+        cleanliness,
+        punctualityRating,
+        patientCooperation,
+        followedInstructions,
+        waitingTime,
+        explanationClarity,
+        painManagement
+      } = req.body;
 
       if (!appointmentId || !targetId || !rating) {
         res.status(400).json({
@@ -29,6 +48,19 @@ export class ReviewController {
         rating: parseInt(rating, 10),
         comment,
         tags,
+        // Feedback fields
+        wasLate: wasLate !== undefined ? Boolean(wasLate) : undefined,
+        lateMinutes: lateMinutes ? parseInt(lateMinutes, 10) : undefined,
+        wouldRecommend: wouldRecommend !== undefined ? Boolean(wouldRecommend) : undefined,
+        serviceQuality: serviceQuality ? parseInt(serviceQuality, 10) : undefined,
+        communication: communication ? parseInt(communication, 10) : undefined,
+        cleanliness: cleanliness ? parseInt(cleanliness, 10) : undefined,
+        punctualityRating: punctualityRating ? parseInt(punctualityRating, 10) : undefined,
+        patientCooperation: patientCooperation ? parseInt(patientCooperation, 10) : undefined,
+        followedInstructions: followedInstructions !== undefined ? Boolean(followedInstructions) : undefined,
+        waitingTime: waitingTime ? parseInt(waitingTime, 10) : undefined,
+        explanationClarity: explanationClarity ? parseInt(explanationClarity, 10) : undefined,
+        painManagement: painManagement ? parseInt(painManagement, 10) : undefined,
       });
 
       logger.info(`Review created: ${review.id}`);

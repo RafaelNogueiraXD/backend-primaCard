@@ -332,6 +332,60 @@ export class UserService {
     return { count: result.count };
   }
 
+  async getReferralCode(userId: string): Promise<{ referralCode: string }> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, referralCode: true, firstName: true, lastName: true },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Se já tem código, retorna
+    if (user.referralCode) {
+      return { referralCode: user.referralCode };
+    }
+
+    // Gera novo código único
+    const referralCode = await this.generateUniqueReferralCode(user);
+
+    // Salva no banco
+    await prisma.user.update({
+      where: { id: userId },
+      data: { referralCode },
+    });
+
+    return { referralCode };
+  }
+
+  private async generateUniqueReferralCode(user: { firstName: string; lastName: string; id: string }): Promise<string> {
+    const maxAttempts = 10;
+    
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Gera código baseado no nome + números aleatórios
+      const namePart = (user.firstName.substring(0, 3) + user.lastName.substring(0, 3))
+        .toUpperCase()
+        .replace(/[^A-Z]/g, '');
+      
+      const randomPart = Math.floor(1000 + Math.random() * 9000); // 4 dígitos
+      const code = `${namePart}${randomPart}`;
+
+      // Verifica se já existe
+      const existing = await prisma.user.findUnique({
+        where: { referralCode: code },
+      });
+
+      if (!existing) {
+        return code;
+      }
+    }
+
+    // Fallback: usa parte do UUID + timestamp
+    const fallbackCode = user.id.substring(0, 4).toUpperCase() + Date.now().toString().slice(-4);
+    return fallbackCode;
+  }
+
   private sanitizeUser(user: any): any {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...sanitized } = user;

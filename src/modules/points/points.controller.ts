@@ -129,4 +129,20 @@ export class PointsController {
       });
     }
   }
+
+  async getAvailableForReward(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.userId;
+      const { rewardId } = req.params;
+
+      const result = await pointsService.getAvailableForReward(userId, rewardId);
+
+      res.json({ data: result });
+    } catch (error: any) {
+      logger.error('Error getting available points for reward:', error);
+      res.status(error.message === 'Reward not found' ? 404 : 500).json({
+        errors: [{ message: error.message || 'Failed to get available points' }],
+      });
+    }
+  }
 }

@@ -14,34 +14,34 @@ export class AppointmentController {
       
       let patientId = userId;
       
-      // If professional is creating appointment, they must specify patientId
+      // If professional is creating appointment
       if (role === 'PROFESSIONAL') {
-        if (!req.body.patientId) {
-          res.status(400).json({
-            errors: [{ message: 'patientId is required when creating appointment as professional' }],
+        // Check if they are booking for another patient
+        if (req.body.patientId && req.body.patientId !== userId) {
+          patientId = req.body.patientId;
+          
+          // Verify professional exists
+          const professional = await prisma.professional.findUnique({
+            where: { userId },
           });
-          return;
-        }
-        patientId = req.body.patientId;
-        
-        // Verify professional exists
-        const professional = await prisma.professional.findUnique({
-          where: { userId },
-        });
-        
-        if (!professional) {
-          res.status(403).json({
-            errors: [{ message: 'Professional profile not found' }],
-          });
-          return;
-        }
-        
-        // Ensure professional is booking for themselves
-        if (professionalId !== professional.id) {
-          res.status(403).json({
-            errors: [{ message: 'You can only create appointments for yourself' }],
-          });
-          return;
+          
+          if (!professional) {
+            res.status(403).json({
+              errors: [{ message: 'Professional profile not found' }],
+            });
+            return;
+          }
+          
+          // Ensure professional is booking for themselves as provider
+          if (professionalId !== professional.id) {
+            res.status(403).json({
+              errors: [{ message: 'You can only create appointments for yourself as provider' }],
+            });
+            return;
+          }
+        } else {
+          // Booking for self (acting as patient)
+          patientId = userId;
         }
       }
 
@@ -77,11 +77,14 @@ export class AppointmentController {
     try {
       const userId = req.user!.userId;
       const role = req.user!.role;
-      const { status, from, to, page, perPage } = req.query;
+      const { status, from, to, page, perPage, asPatient } = req.query;
+
+      // If asPatient is true, force role to PATIENT to fetch appointments where user is the patient
+      const effectiveRole = asPatient === 'true' ? 'PATIENT' : role;
 
       const result = await appointmentService.list({
         userId,
-        role,
+        role: effectiveRole,
         status: status as string,
         from: from ? new Date(from as string) : undefined,
         to: to ? new Date(to as string) : undefined,
@@ -257,6 +260,78 @@ export class AppointmentController {
       const statusCode = error.message === 'Not authorized' ? 403 : 400;
       res.status(statusCode).json({
         errors: [{ message: error.message || 'Failed to mark no-show' }],
+      });
+    }
+  }
+
+  async getAvailableSlots(req: Request, res: Response): Promise<void> {
+    try {
+      const { professionalId } = req.params;
+      const { date, procedureId } = req.query;
+
+      if (!date) {
+        res.status(400).json({
+          errors: [{ message: 'Date is required (YYYY-MM-DD format)' }],
+        });
+        return;
+      }
+
+      const dateObj = new Date(date as string);
+      if (isNaN(dateObj.getTime())) {
+        res.status(400).json({
+          errors: [{ message: 'Invalid date format. Use YYYY-MM-DD' }],
+        });
+        return;
+      }
+
+      const slots = await appointmentService.getAvailableSlots(
+        professionalId,
+        dateObj,
+        procedureId as string | undefined
+      );
+
+      res.json({ data: slots });
+    } catch (error: any) {
+      logger.error('Error getting available slots:', error);
+      res.status(error.message === 'Professional not found' ? 404 : 500).json({
+        errors: [{ message: error.message || 'Failed to get available slots' }],
+      });
+    }
+  }
+
+  async getAvailableDates(req: Request, res: Response): Promise<void> {
+    try {
+      const { professionalId } = req.params;
+      const { startDate, endDate } = req.query;
+
+      if (!startDate || !endDate) {
+        res.status(400).json({
+          errors: [{ message: 'startDate and endDate are required (YYYY-MM-DD format)' }],
+        });
+        return;
+      }
+
+      const startDateObj = new Date(startDate as string);
+      const endDateObj = new Date(endDate as string);
+
+      if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+        res.status(400).json({
+          errors: [{ message: 'Invalid date format. Use YYYY-MM-DD' }],
+        });
+        return;
+      }
+
+      const dates = await appointmentService.getAvailableDates(
+        professionalId,
+        startDateObj,
+        endDateObj
+      );
+
+      res.json({ data: dates });
+    } catch (error: any) {
+      logger.error('Error getting available dates:', error);
+      res.status(error.message === 'Professional not found' ? 404 : 500).json({
+        errors: [{ message: error.message || 'Failed to get available dates' }],
       });
     }
   }

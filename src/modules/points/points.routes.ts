@@ -89,6 +89,54 @@ router.get('/statistics', authenticate, (req, res) => controller.getStatistics(r
 
 /**
  * @swagger
+ * /points/available/{rewardId}:
+ *   get:
+ *     summary: Get available points for a specific reward (excluding restricted buckets)
+ *     tags: [Points]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: rewardId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Reward ID to check available points
+ *     responses:
+ *       200:
+ *         description: Available points for the reward
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalAvailable:
+ *                       type: integer
+ *                       example: 139
+ *                       description: Total points available after excluding restricted buckets
+ *                     balances:
+ *                       type: object
+ *                       additionalProperties:
+ *                         type: integer
+ *                       example:
+ *                         general: 109
+ *                         cleaning: 30
+ *                     excludedBuckets:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ["whitening"]
+ *       404:
+ *         description: Reward not found
+ */
+router.get('/available/:rewardId', authenticate, (req, res) => controller.getAvailableForReward(req, res));
+
+/**
+ * @swagger
  * /points/adjust:
  *   post:
  *     summary: Adjust user points (Admin only)

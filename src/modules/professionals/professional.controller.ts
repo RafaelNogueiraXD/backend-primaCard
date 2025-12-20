@@ -39,7 +39,7 @@ export class ProfessionalController {
   async getAvailability(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { professionalId } = req.params;
-      const { date } = req.query;
+      const { date, procedureId } = req.query;
       
       if (!date) {
         ResponseHandler.error(res, 400, 'Date parameter is required');
@@ -48,7 +48,8 @@ export class ProfessionalController {
 
       const result = await this.professionalService.getAvailability(
         professionalId,
-        new Date(date as string)
+        new Date(date as string),
+        procedureId as string
       );
       
       ResponseHandler.success(res, result);

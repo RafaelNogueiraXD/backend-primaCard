@@ -34,6 +34,7 @@ export const PointsCause = {
   REWARD_REDEMPTION: 'REWARD_REDEMPTION',
   ADMIN_ADJUSTMENT: 'ADMIN_ADJUSTMENT',
   REFUND: 'REFUND',
+  REVIEW_RATING: 'REVIEW_RATING',
 } as const;
 
 export const ReferralStatus = {
