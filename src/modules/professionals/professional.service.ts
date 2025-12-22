@@ -1,6 +1,12 @@
 import prisma from '../../config/database';
+import { AppointmentService } from '../appointments/appointment.service';
 
 export class ProfessionalService {
+  private appointmentService: AppointmentService;
+
+  constructor() {
+    this.appointmentService = new AppointmentService();
+  }
   async list(filters: {
     specialty?: string;
     search?: string;
@@ -131,86 +137,43 @@ export class ProfessionalService {
     };
   }
 
+  /**
+   * Get available appointment slots for a professional on a given date.
+   * This method delegates to AppointmentService.getAvailableSlots() to ensure
+   * that schedule settings, break times, blocked dates, and day availability
+   * are all properly respected.
+   * 
+   * @deprecated Consider using AppointmentService.getAvailableSlots() directly for more detailed slot information
+   */
   async getAvailability(
     professionalId: string,
     date: Date,
     procedureId?: string
   ): Promise<{ availableSlots: string[] }> {
-    const professional = await prisma.professional.findUnique({
-      where: { id: professionalId },
-    });
+    // Delegate to the properly implemented method in AppointmentService
+    // This ensures all schedule configuration is respected:
+    // - Weekly schedule (enabled/disabled days)
+    // - Work hours and break times
+    // - Blocked dates
+    // - Existing appointments
+    const result = await this.appointmentService.getAvailableSlots(
+      professionalId,
+      date,
+      procedureId
+    );
 
-    if (!professional) {
-      throw new Error('Professional not found');
-    }
-
-    let duration = 30;
-    if (procedureId) {
-      const procedure = await prisma.procedure.findUnique({
-        where: { id: procedureId },
-      });
-      if (procedure) {
-        duration = procedure.defaultDurationMinutes;
-      }
-    }
-
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const appointments = await prisma.appointment.findMany({
-      where: {
-        professionalId,
-        startsAt: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-        status: {
-          notIn: ['CANCELED_BY_PATIENT', 'CANCELED_BY_PROFESSIONAL', 'NO_SHOW_PATIENT'],
-        },
-      },
-      select: {
-        startsAt: true,
-        endsAt: true,
-      },
-    });
-
-    const slots: string[] = [];
-    const workDayStart = new Date(date);
-    workDayStart.setHours(8, 0, 0, 0);
-
-    const workDayEnd = new Date(date);
-    workDayEnd.setHours(18, 0, 0, 0);
-
-    let currentSlot = new Date(workDayStart);
-
-    while (currentSlot < workDayEnd) {
-      const slotTime = currentSlot.toISOString();
-      const slotEnd = new Date(currentSlot.getTime() + duration * 60000);
-
-      if (slotEnd > workDayEnd) {
-        currentSlot = new Date(currentSlot.getTime() + 30 * 60000);
-        continue;
-      }
-      
-      const isBooked = appointments.some((apt) => {
-        const aptStart = new Date(apt.startsAt);
-        const aptEnd = new Date(apt.endsAt);
-        
-        // Check for overlap: SlotStart < AptEnd AND SlotEnd > AptStart
-        return currentSlot < aptEnd && slotEnd > aptStart;
+    // Transform format from {start: 'HH:mm', end: 'HH:mm', available: boolean}
+    // to ISO datetime strings (backward compatibility with frontend)
+    const availableSlots = result.slots
+      .filter(slot => slot.available)
+      .map(slot => {
+        const [hours, minutes] = slot.start.split(':');
+        const datetime = new Date(date);
+        datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+        return datetime.toISOString();
       });
 
-      if (!isBooked) {
-        slots.push(slotTime);
-      }
-
-      currentSlot = new Date(currentSlot.getTime() + 30 * 60000);
-    }
-
-    return { availableSlots: slots };
+    return { availableSlots };
   }
 
   async getProcedures(professionalId: string): Promise<any[]> {

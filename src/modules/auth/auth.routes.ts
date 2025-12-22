@@ -236,4 +236,50 @@ router.patch(
   authController.updateProfile.bind(authController)
 );
 
+/**
+ * @swagger
+ * /auth/change-password:
+ *   post:
+ *     summary: Change user password
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 example: SenhaAtual123
+ *               newPassword:
+ *                 type: string
+ *                 example: NovaSenha123
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Invalid current password or validation error
+ */
+router.post(
+  '/change-password',
+  authenticate,
+  [
+    body('currentPassword').trim().notEmpty().withMessage('Current password is required'),
+    body('newPassword')
+      .trim()
+      .notEmpty()
+      .withMessage('New password is required')
+      .isLength({ min: 6 })
+      .withMessage('New password must be at least 6 characters long'),
+  ],
+  validate,
+  authController.changePassword.bind(authController)
+);
+
 export default router;

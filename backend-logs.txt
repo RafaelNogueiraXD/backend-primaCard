@@ -1,0 +1,28 @@
+
+> primacard-backend@1.0.0 dev
+> tsx watch src/server.ts
+
+2025-12-22T03:45:23.438Z [[32minfo[39m]: Database connected successfully 
+2025-12-22T03:45:23.445Z [[32minfo[39m]: Starting scheduled jobs... 
+2025-12-22T03:45:23.448Z [[32minfo[39m]: All scheduled jobs started successfully 
+node:events:497
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at Server.listen (node:net:2102:7)
+    at Function.listen (/home/rafa/Área de Trabalho/Odonto/react-to-app/backend-primaCard/node_modules/express/lib/application.js:635:24)
+    at startServer (/home/rafa/Área de Trabalho/Odonto/react-to-app/backend-primaCard/src/server.ts:18:9)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -98,
+  syscall: 'listen',
+  address: '::',
+  port: 3000
+}
+
+Node.js v22.21.0

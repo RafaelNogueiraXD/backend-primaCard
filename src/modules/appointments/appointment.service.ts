@@ -4,6 +4,8 @@ import { config } from '../../config';
 import { PointsService } from '../points/points.service';
 import { ReferralService } from '../referrals/referral.service';
 import { NotificationService } from '../notifications/notification.service';
+import emailService from '../../utils/email.service';
+import logger from '../../config/logger';
 
 const pointsService = new PointsService();
 const referralService = new ReferralService();
@@ -108,6 +110,27 @@ export class AppointmentService {
       },
     });
 
+    // Send email notification to professional about new appointment
+    try {
+      const professionalUser = appointment.professional.user;
+      const patientUser = appointment.patient;
+      
+      emailService.sendNewAppointmentToProfessional(
+        professionalUser.email,
+        `${professionalUser.firstName} ${professionalUser.lastName}`,
+        `${patientUser.firstName} ${patientUser.lastName}`,
+        appointment.procedure.name,
+        appointment.startsAt
+      ).catch((error) => {
+        logger.error(`Failed to send new appointment email to professional ${professionalUser.email}:`, error);
+      });
+
+      logger.info(`New appointment notification sent to professional ${professionalUser.email}`);
+    } catch (error) {
+      // Don't throw error - email failure shouldn't break appointment creation
+      logger.error('Error sending new appointment notification email:', error);
+    }
+
     return appointment;
   }
 
@@ -131,9 +154,14 @@ export class AppointmentService {
     const updated = await prisma.appointment.update({
       where: { id: appointmentId },
       data: { status: 'SCHEDULED' },
+      include: {
+        professional: { include: { user: true } },
+        patient: true,
+        procedure: true,
+      },
     });
 
-    // Notify patient
+    // Notify patient via in-app notification
     try {
       const snapshot = appointment.procedureSnapshot as any;
       await notificationService.create({
@@ -145,6 +173,27 @@ export class AppointmentService {
       });
     } catch (error) {
       console.error('Failed to create notification for appointment acceptance:', error);
+    }
+
+    // Send email notification to patient
+    try {
+      const professionalUser = updated.professional.user;
+      const patientUser = updated.patient;
+      
+      emailService.sendAppointmentConfirmedToPatient(
+        patientUser.email,
+        `${patientUser.firstName} ${patientUser.lastName}`,
+        `${professionalUser.firstName} ${professionalUser.lastName}`,
+        updated.procedure.name,
+        updated.startsAt
+      ).catch((error) => {
+        logger.error(`Failed to send appointment confirmed email to patient ${patientUser.email}:`, error);
+      });
+
+      logger.info(`Appointment confirmed notification sent to patient ${patientUser.email}`);
+    } catch (error) {
+      // Don't throw error - email failure shouldn't break appointment acceptance
+      logger.error('Error sending appointment confirmed notification email:', error);
     }
 
     return updated;
@@ -259,7 +308,11 @@ export class AppointmentService {
   async complete(appointmentId: string, professionalId: string): Promise<any> {
     const appointment = await prisma.appointment.findUnique({
       where: { id: appointmentId },
-      include: { procedure: true },
+      include: { 
+        procedure: true,
+        professional: { include: { user: true } },
+        patient: true,
+      },
     });
 
     if (!appointment) {
@@ -284,6 +337,9 @@ export class AppointmentService {
     });
 
     // Grant points to patient
+    const snapshot = appointment.procedureSnapshot as any;
+    const pointsEarned = snapshot?.pointsGeneral || 0;
+    
     await pointsService.grantProcedurePoints(
       appointmentId,
       appointment.patientId,
@@ -293,6 +349,27 @@ export class AppointmentService {
 
     // Check and complete referral if this is user's first appointment
     await referralService.checkAndCompleteReferral(appointment.patientId);
+
+    // Send email notification to patient about completed appointment
+    try {
+      const professionalUser = appointment.professional.user;
+      const patientUser = appointment.patient;
+      
+      emailService.sendAppointmentCompletedToPatient(
+        patientUser.email,
+        `${patientUser.firstName} ${patientUser.lastName}`,
+        `${professionalUser.firstName} ${professionalUser.lastName}`,
+        appointment.procedure.name,
+        pointsEarned
+      ).catch((error) => {
+        logger.error(`Failed to send appointment completed email to patient ${patientUser.email}:`, error);
+      });
+
+      logger.info(`Appointment completed notification sent to patient ${patientUser.email}`);
+    } catch (error) {
+      // Don't throw error - email failure shouldn't break appointment completion
+      logger.error('Error sending appointment completed notification email:', error);
+    }
 
     return updated;
   }
@@ -443,13 +520,14 @@ export class AppointmentService {
 
   /**
    * Get available time slots for a professional on a specific date
+   * Integrates professional schedule settings with appointment filtering
    */
   async getAvailableSlots(
     professionalId: string,
     date: Date,
     procedureId?: string
   ): Promise<{ slots: Array<{ start: string; end: string; available: boolean }> }> {
-    // Get the professional
+    // Get the professional with schedule settings
     const professional = await prisma.professional.findUnique({
       where: { id: professionalId },
       include: { user: true },
@@ -459,7 +537,7 @@ export class AppointmentService {
       throw new Error('Professional not found');
     }
 
-    // Get schedule settings
+    // Get schedule settings (use defaults if not set)
     const scheduleSettings = professional.scheduleSettings as any || {
       weeklySchedule: [
         { day: 0, enabled: false },
@@ -472,45 +550,70 @@ export class AppointmentService {
       ],
       appointmentDuration: 30,
       bufferTime: 5,
+      blockedDates: [],
     };
 
-    // Get procedure duration or use default
+    // STEP 1: Check if day of week is enabled
+    const dayOfWeek = date.getDay();
+    
+    console.log('\n🔍 BACKEND - Verificando disponibilidade');
+    console.log('Data recebida:', date.toString());
+    console.log('Data ISO:', date.toISOString());
+    console.log('Dia da semana (getDay()):', dayOfWeek);
+    console.log('Nome do dia:', ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][dayOfWeek]);
+    
+    console.log('\nWeekly Schedule no backend:');
+    scheduleSettings.weeklySchedule?.forEach((d: any) => {
+      console.log(`  Day ${d.day} (${d.dayName}): enabled=${d.enabled}`);
+    });
+    
+    const daySchedule = scheduleSettings.weeklySchedule?.find((d: any) => d.day === dayOfWeek);
+    console.log('\n🎯 Procurando configuração para dia:', dayOfWeek);
+    console.log('Configuração encontrada:', daySchedule);
+    console.log('Está habilitado?', daySchedule?.enabled);
+
+    if (!daySchedule || !daySchedule.enabled) {
+      console.log('❌ DIA NÃO HABILITADO - Retornando 0 slots\n');
+      return { slots: [] };
+    }
+    
+    console.log('✅ Dia habilitado, continuando...\n');
+
+    // STEP 2: Check if date is blocked
+    const dateString = date.toISOString().split('T')[0];
+    const blockedDates = scheduleSettings.blockedDates || [];
+    const isDateBlocked = blockedDates.some((b: any) => {
+      const blockedDate = typeof b === 'string' ? b : b.date;
+      return blockedDate === dateString;
+    });
+    
+    if (isDateBlocked) {
+      return { slots: [] };
+    }
+
+    // STEP 3: Get slot duration (procedure-specific or professional default)
     let slotDuration = scheduleSettings.appointmentDuration || 30;
     
     if (procedureId) {
       const procedure = await prisma.procedure.findUnique({
         where: { id: procedureId },
       });
-      if (procedure) {
+      if (procedure && procedure.defaultDurationMinutes) {
         slotDuration = procedure.defaultDurationMinutes;
       }
     }
 
     const bufferTime = scheduleSettings.bufferTime || 5;
-
-    // Get the day of week (0 = Sunday, 6 = Saturday)
-    const dayOfWeek = date.getDay();
-    const daySchedule = scheduleSettings.weeklySchedule?.find((d: any) => d.day === dayOfWeek);
-
-    // If day is not enabled, return empty
-    if (!daySchedule || !daySchedule.enabled) {
-      return { slots: [] };
-    }
-
-    // Check if date is blocked
-    const dateString = date.toISOString().split('T')[0];
-    const blockedDates = scheduleSettings.blockedDates || [];
-    const isBlocked = blockedDates.some((b: any) => b.date === dateString);
     
-    if (isBlocked) {
-      return { slots: [] };
-    }
+    // Interval between slots is always 30 minutes (standard scheduling interval)
+    // The slotDuration is used to check if procedure fits, not for incrementing time
+    const slotInterval = 30;
 
-    // Parse work hours
+    // STEP 4: Parse work hours from schedule
     const [startHour, startMin] = daySchedule.start.split(':').map(Number);
     const [endHour, endMin] = daySchedule.end.split(':').map(Number);
 
-    // Get all existing appointments for this professional on this date
+    // STEP 5: Get existing appointments for this date
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
     
@@ -521,21 +624,14 @@ export class AppointmentService {
       where: {
         professionalId,
         startsAt: { gte: startOfDay, lte: endOfDay },
-        status: { notIn: ['CANCELED_BY_PATIENT', 'CANCELED_BY_PROFESSIONAL', 'NO_SHOW_PATIENT', 'NO_SHOW_PROFESSIONAL'] },
+        status: { 
+          notIn: ['CANCELED_BY_PATIENT', 'CANCELED_BY_PROFESSIONAL', 'NO_SHOW_PATIENT', 'NO_SHOW_PROFESSIONAL'] 
+        },
       },
       orderBy: { startsAt: 'asc' },
     });
 
-    // Generate all possible slots
-    const slots: Array<{ start: string; end: string; available: boolean }> = [];
-    
-    let currentTime = new Date(date);
-    currentTime.setHours(startHour, startMin, 0, 0);
-    
-    const workEndTime = new Date(date);
-    workEndTime.setHours(endHour, endMin, 0, 0);
-
-    // Parse break times if applicable
+    // STEP 6: Parse break times if applicable
     let breakStart: Date | null = null;
     let breakEnd: Date | null = null;
     
@@ -550,59 +646,89 @@ export class AppointmentService {
       breakEnd.setHours(breakEndHour, breakEndMin, 0, 0);
     }
 
+    // STEP 7: Generate time slots based on professional configuration
+    const slots: Array<{ start: string; end: string; available: boolean }> = [];
+    
+    let currentTime = new Date(date);
+    currentTime.setHours(startHour, startMin, 0, 0);
+    
+    const workEndTime = new Date(date);
+    workEndTime.setHours(endHour, endMin, 0, 0);
+
+    const now = new Date();
+    
+    console.log(`\n=== GERANDO SLOTS (BACKEND) ===`);
+    console.log(`Expediente: ${startHour}:${startMin.toString().padStart(2, '0')} - ${endHour}:${endMin.toString().padStart(2, '0')}`);
+    console.log(`Duração procedimento: ${slotDuration} minutos`);
+    console.log(`Intervalo entre slots: ${slotInterval} minutos`);
+    console.log(`Break: ${daySchedule.breakStart} - ${daySchedule.breakEnd}`);
+
     while (currentTime < workEndTime) {
       const slotStart = new Date(currentTime);
       const slotEnd = addMinutes(slotStart, slotDuration);
       
-      // Check if slot ends after work hours
-      if (slotEnd > workEndTime) {
-        break;
-      }
-
       const startString = `${slotStart.getHours().toString().padStart(2, '0')}:${slotStart.getMinutes().toString().padStart(2, '0')}`;
       const endString = `${slotEnd.getHours().toString().padStart(2, '0')}:${slotEnd.getMinutes().toString().padStart(2, '0')}`;
+      
+      // Skip if slot ends after work hours
+      if (slotEnd > workEndTime) {
+        console.log(`❌ Slot ${startString} pulado: termina ${endString} após expediente ${endHour}:${endMin.toString().padStart(2, '0')}`);
+        console.log(`   Total de slots gerados: ${slots.length}`);
+        break;
+      }
+      // FILTER 1: Check if slot is in the past
+      const isPast = slotStart < now;
 
-      // Check if slot is during break
+      // FILTER 2: Check if slot overlaps with break time
       let isDuringBreak = false;
       if (breakStart && breakEnd) {
+        // Slot overlaps with break if it starts before break ends AND ends after break starts
         isDuringBreak = (slotStart < breakEnd && slotEnd > breakStart);
       }
 
-      // Check if slot conflicts with existing appointments
+      // FILTER 3: Check if slot conflicts with existing appointments (including buffer)
       let hasConflict = false;
       for (const appt of existingAppointments) {
         const apptStart = new Date(appt.startsAt);
         const apptEnd = new Date(appt.endsAt);
         
-        // Add buffer time consideration
+        // Consider buffer time around appointments
         const apptStartWithBuffer = addMinutes(apptStart, -bufferTime);
         const apptEndWithBuffer = addMinutes(apptEnd, bufferTime);
         
+        // Check overlap: slot overlaps if it starts before appointment ends AND ends after appointment starts
         if (slotStart < apptEndWithBuffer && slotEnd > apptStartWithBuffer) {
           hasConflict = true;
           break;
         }
       }
 
-      // Check if slot is in the past
-      const now = new Date();
-      const isPast = slotStart < now;
-
+      // Slot is available only if it passes all filters
       slots.push({
         start: startString,
         end: endString,
-        available: !isDuringBreak && !hasConflict && !isPast,
+        available: !isPast && !isDuringBreak && !hasConflict,
       });
+      
+      // Log detalhado para debug
+      if (startString >= '14:00' && startString <= '17:00') {
+        console.log(`Slot ${startString}: isPast=${isPast}, isDuringBreak=${isDuringBreak}, hasConflict=${hasConflict}, available=${!isPast && !isDuringBreak && !hasConflict}`);
+      }
 
-      // Move to next slot (slot duration + buffer)
-      currentTime = addMinutes(currentTime, slotDuration + bufferTime);
+      // Move to next slot by standard interval (30 minutes)
+      // This ensures slots are always at regular intervals (8:00, 8:30, 9:00, etc.)
+      currentTime = addMinutes(currentTime, slotInterval);
     }
+    
+    console.log(`\n✅ Total de slots retornados: ${slots.length}`);
+    console.log(`Primeiro: ${slots[0]?.start}, Último: ${slots[slots.length-1]?.start}\n`);
 
     return { slots };
   }
 
   /**
    * Get available dates for a professional in a date range
+   * Considers professional schedule settings and blocked dates
    */
   async getAvailableDates(
     professionalId: string,
@@ -630,20 +756,32 @@ export class AppointmentService {
       blockedDates: [],
     };
 
-    const blockedDates = new Set((scheduleSettings.blockedDates || []).map((b: any) => b.date));
+    // Build set of blocked dates for fast lookup
+    const blockedDates = new Set(
+      (scheduleSettings.blockedDates || []).map((b: any) => typeof b === 'string' ? b : b.date)
+    );
+    
     const dates: Array<{ date: string; hasAvailableSlots: boolean }> = [];
-
     const current = new Date(startDate);
     const end = new Date(endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     while (current <= end) {
       const dateString = current.toISOString().split('T')[0];
       const dayOfWeek = current.getDay();
       const daySchedule = scheduleSettings.weeklySchedule?.find((d: any) => d.day === dayOfWeek);
 
+      // Check if day is enabled in weekly schedule
       const isEnabled = daySchedule?.enabled || false;
+      
+      // Check if date is specifically blocked
       const isBlocked = blockedDates.has(dateString);
-      const isPast = current < new Date(new Date().toISOString().split('T')[0]);
+      
+      // Check if date is in the past
+      const currentDateOnly = new Date(current);
+      currentDateOnly.setHours(0, 0, 0, 0);
+      const isPast = currentDateOnly < today;
 
       dates.push({
         date: dateString,

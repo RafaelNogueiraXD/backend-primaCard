@@ -1,5 +1,7 @@
 import prisma from '../../config/database';
 import { config } from '../../config';
+import emailService from '../../utils/email.service';
+import logger from '../../config/logger';
 
 export class PointsService {
   async createTransaction(data: {
@@ -11,7 +13,7 @@ export class PointsService {
     referenceId?: string;
     metadata?: any;
   }): Promise<any> {
-    return prisma.pointTransaction.create({
+    const transaction = await prisma.pointTransaction.create({
       data: {
         userId: data.userId,
         bucket: data.bucket,
@@ -22,6 +24,56 @@ export class PointsService {
         metadata: data.metadata,
       },
     });
+
+    // Send email notification if points were credited (delta > 0)
+    if (data.delta > 0) {
+      try {
+        // Get user details
+        const user = await prisma.user.findUnique({
+          where: { id: data.userId },
+          select: {
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        });
+
+        if (user) {
+          // Get total balance
+          const balances = await this.getBalance(data.userId);
+          const totalBalance = Object.values(balances).reduce((sum, val) => sum + val, 0);
+
+          // Map cause to friendly reason
+          const reasonMap: { [key: string]: string } = {
+            'procedure_completed': 'Consulta concluída',
+            'referral_reward': 'Indicação de amigo',
+            'manual_adjustment': 'Ajuste manual',
+            'punctuality_bonus': 'Bônus de pontualidade',
+            'first_appointment': 'Primeira consulta',
+          };
+
+          const reason = reasonMap[data.cause] || data.cause;
+
+          // Send email (async, don't wait for it)
+          emailService.sendPointsReceivedEmail(
+            user.email,
+            `${user.firstName} ${user.lastName}`,
+            data.delta,
+            reason,
+            totalBalance
+          ).catch((error) => {
+            logger.error(`Failed to send points email to ${user.email}:`, error);
+          });
+
+          logger.info(`Points credited notification sent to ${user.email}: +${data.delta} points`);
+        }
+      } catch (error) {
+        // Don't throw error - email failure shouldn't break points transaction
+        logger.error('Error sending points notification email:', error);
+      }
+    }
+
+    return transaction;
   }
 
   async getBalance(userId: string): Promise<{ [bucket: string]: number }> {

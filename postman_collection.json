@@ -62,14 +62,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"teste@email.com\",\n  \"password\": \"Senha123!@#\",\n  \"firstName\": \"Usuário\",\n  \"lastName\": \"Teste\",\n  \"phone\": \"11999999999\",\n  \"role\": \"PATIENT\"\n}"
+              "raw": "{\n  \"email\": \"teste@email.com\",\n  \"password\": \"Senha123!@#\",\n  \"firstName\": \"Usuário\",\n  \"lastName\": \"Teste\",\n  \"phone\": \"11999999999\",\n  \"role\": \"PATIENT\",\n  \"referralCode\": \"ABC123XYZ\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",
               "host": ["{{base_url}}"],
               "path": ["auth", "register"]
             },
-            "description": "Registra um novo usuário no sistema"
+            "description": "Registra um novo usuário no sistema. Pode incluir código de indicação para ganhar pontos."
           }
         },
         {
@@ -1242,13 +1242,19 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/professionals/:professionalId/availability?date=2025-11-20",
+              "raw": "{{base_url}}/professionals/:professionalId/availability?date=2025-12-24&procedureId=",
               "host": ["{{base_url}}"],
               "path": ["professionals", ":professionalId", "availability"],
               "query": [
                 {
                   "key": "date",
-                  "value": "2025-11-20"
+                  "value": "2025-12-24",
+                  "description": "Data no formato YYYY-MM-DD"
+                },
+                {
+                  "key": "procedureId",
+                  "value": "",
+                  "description": "ID do procedimento (opcional, para considerar duração específica)"
                 }
               ],
               "variable": [
@@ -1258,7 +1264,149 @@
                 }
               ]
             },
-            "description": "Retorna horários disponíveis de um profissional"
+            "description": "Retorna horários disponíveis de um profissional respeitando: dias habilitados, horários configurados, intervalos de descanso, datas bloqueadas e agendamentos existentes."
+          }
+        },
+        {
+          "name": "Get Schedule Settings",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/professionals/schedule-settings",
+              "host": ["{{base_url}}"],
+              "path": ["professionals", "schedule-settings"]
+            },
+            "description": "Retorna as configurações de horário do profissional autenticado (dias de trabalho, horários, intervalos, datas bloqueadas)"
+          }
+        },
+        {
+          "name": "Update Schedule Settings",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"weeklySchedule\": [\n    {\n      \"day\": 0,\n      \"dayName\": \"Domingo\",\n      \"enabled\": false,\n      \"start\": \"08:00\",\n      \"end\": \"17:00\",\n      \"break\": false,\n      \"breakStart\": \"12:00\",\n      \"breakEnd\": \"13:00\"\n    },\n    {\n      \"day\": 1,\n      \"dayName\": \"Segunda-feira\",\n      \"enabled\": true,\n      \"start\": \"08:00\",\n      \"end\": \"17:00\",\n      \"break\": true,\n      \"breakStart\": \"12:00\",\n      \"breakEnd\": \"13:00\"\n    },\n    {\n      \"day\": 2,\n      \"dayName\": \"Terça-feira\",\n      \"enabled\": true,\n      \"start\": \"08:00\",\n      \"end\": \"17:00\",\n      \"break\": true,\n      \"breakStart\": \"12:00\",\n      \"breakEnd\": \"13:00\"\n    },\n    {\n      \"day\": 3,\n      \"dayName\": \"Quarta-feira\",\n      \"enabled\": true,\n      \"start\": \"08:00\",\n      \"end\": \"17:00\",\n      \"break\": true,\n      \"breakStart\": \"12:00\",\n      \"breakEnd\": \"13:00\"\n    },\n    {\n      \"day\": 4,\n      \"dayName\": \"Quinta-feira\",\n      \"enabled\": true,\n      \"start\": \"08:00\",\n      \"end\": \"17:00\",\n      \"break\": true,\n      \"breakStart\": \"12:00\",\n      \"breakEnd\": \"13:00\"\n    },\n    {\n      \"day\": 5,\n      \"dayName\": \"Sexta-feira\",\n      \"enabled\": true,\n      \"start\": \"08:00\",\n      \"end\": \"17:00\",\n      \"break\": true,\n      \"breakStart\": \"12:00\",\n      \"breakEnd\": \"13:00\"\n    },\n    {\n      \"day\": 6,\n      \"dayName\": \"Sábado\",\n      \"enabled\": false,\n      \"start\": \"08:00\",\n      \"end\": \"12:00\",\n      \"break\": false,\n      \"breakStart\": \"\",\n      \"breakEnd\": \"\"\n    }\n  ],\n  \"appointmentDuration\": 30,\n  \"bufferTime\": 5,\n  \"blockedDates\": [\n    {\n      \"id\": \"1\",\n      \"date\": \"2025-12-25\",\n      \"reason\": \"Natal\"\n    },\n    {\n      \"id\": \"2\",\n      \"date\": \"2025-12-31\",\n      \"reason\": \"Ano Novo\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/professionals/schedule-settings",
+              "host": ["{{base_url}}"],
+              "path": ["professionals", "schedule-settings"]
+            },
+            "description": "Atualiza as configurações de horário do profissional (dias de trabalho, horários, intervalos, datas bloqueadas). Apenas profissionais autenticados podem atualizar."
+          }
+        },
+        {
+          "name": "Get Available Slots (Detailed)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/appointments/available-slots/:professionalId?date=2025-12-24&procedureId=",
+              "host": ["{{base_url}}"],
+              "path": ["appointments", "available-slots", ":professionalId"],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2025-12-24",
+                  "description": "Data no formato YYYY-MM-DD"
+                },
+                {
+                  "key": "procedureId",
+                  "value": "",
+                  "description": "ID do procedimento (opcional)"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "professionalId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Retorna slots detalhados com start, end e available. Útil para visualizar todos os slots possíveis incluindo os já ocupados."
+          }
+        },
+        {
+          "name": "Get Available Dates",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/appointments/available-dates/:professionalId?startDate=2025-12-01&endDate=2025-12-31&procedureId=",
+              "host": ["{{base_url}}"],
+              "path": ["appointments", "available-dates", ":professionalId"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2025-12-01",
+                  "description": "Data inicial (YYYY-MM-DD)"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2025-12-31",
+                  "description": "Data final (YYYY-MM-DD)"
+                },
+                {
+                  "key": "procedureId",
+                  "value": "",
+                  "description": "ID do procedimento (opcional)"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "professionalId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Retorna lista de datas com indicador de disponibilidade. Útil para calendários que precisam mostrar quais dias têm horários disponíveis."
           }
         }
       ]
@@ -1358,15 +1506,15 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/referrals/generate",
+              "raw": "{{base_url}}/users/referral-code",
               "host": ["{{base_url}}"],
-              "path": ["referrals", "generate"]
+              "path": ["users", "referral-code"]
             },
-            "description": "Gera código de indicação único para o usuário"
+            "description": "Gera código de indicação único para o usuário (9 caracteres alfanuméricos). É idempotente - múltiplas chamadas retornam o mesmo código."
           }
         },
         {
-          "name": "Get My Referrals",
+          "name": "Get My Referral Code",
           "request": {
             "auth": {
               "type": "bearer",
@@ -1381,17 +1529,34 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/referrals?status=COMPLETED",
+              "raw": "{{base_url}}/users/referral-code",
               "host": ["{{base_url}}"],
-              "path": ["referrals"],
-              "query": [
+              "path": ["users", "referral-code"]
+            },
+            "description": "Retorna o código de indicação do usuário autenticado. Se não existir, retorna null."
+          }
+        },
+        {
+          "name": "Get My Referral Stats",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
                 {
-                  "key": "status",
-                  "value": "COMPLETED"
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
                 }
               ]
             },
-            "description": "Lista indicações feitas pelo usuário"
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/referral-stats",
+              "host": ["{{base_url}}"],
+              "path": ["users", "referral-stats"]
+            },
+            "description": "Retorna estatísticas de indicações: total de indicados, pendentes e completados."
           }
         },
         {
@@ -1400,17 +1565,17 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/referrals/validate/:code",
+              "raw": "{{base_url}}/users/validate-referral/:code",
               "host": ["{{base_url}}"],
-              "path": ["referrals", "validate", ":code"],
+              "path": ["users", "validate-referral", ":code"],
               "variable": [
                 {
                   "key": "code",
-                  "value": ""
+                  "value": "ABC123XYZ"
                 }
               ]
             },
-            "description": "Valida código de indicação (usado no registro)"
+            "description": "Valida se um código de indicação existe e está ativo. Retorna informações do usuário que possui o código."
           }
         }
       ]

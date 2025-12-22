@@ -46,9 +46,14 @@ export class ProfessionalController {
         return;
       }
 
+      // Parse date string as local date (YYYY-MM-DD)
+      // Append 'T12:00:00' to ensure it's interpreted as local noon, avoiding timezone issues
+      const dateStr = date as string;
+      const localDate = new Date(dateStr + 'T12:00:00');
+
       const result = await this.professionalService.getAvailability(
         professionalId,
-        new Date(date as string),
+        localDate,
         procedureId as string
       );
       

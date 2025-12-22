@@ -56,9 +56,17 @@ export class AuthController {
   async forgotPassword(req: Request, res: Response): Promise<Response> {
     try {
       const { email } = req.body;
-      const message = await authService.requestPasswordReset(email);
-      return ResponseHandler.success(res, { message });
+      
+      if (!email) {
+        return ResponseHandler.badRequest(res, 'Email is required');
+      }
+
+      const result = await authService.forgotPassword(email);
+      return ResponseHandler.success(res, result);
     } catch (error) {
+      if (error instanceof Error) {
+        return ResponseHandler.badRequest(res, error.message);
+      }
       return ResponseHandler.internalError(res);
     }
   }
@@ -116,4 +124,24 @@ export class AuthController {
       return ResponseHandler.internalError(res);
     }
   }
+
+  async changePassword(req: Request, res: Response): Promise<Response> {
+    try {
+      const userId = req.user!.userId;
+      const { currentPassword, newPassword } = req.body;
+      
+      if (!currentPassword || !newPassword) {
+        return ResponseHandler.badRequest(res, 'Current password and new password are required');
+      }
+
+      const result = await authService.changePassword(userId, currentPassword, newPassword);
+      return ResponseHandler.success(res, result);
+    } catch (error) {
+      if (error instanceof Error) {
+        return ResponseHandler.badRequest(res, error.message);
+      }
+      return ResponseHandler.internalError(res);
+    }
+  }
 }
+

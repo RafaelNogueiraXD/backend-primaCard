@@ -3,6 +3,8 @@ import { AuthUtils } from '../../utils/authUtils';
 import { AuthTokens, JWTPayload } from '../../types';
 import { addDays } from '../../utils/dateUtils';
 import { config } from '../../config';
+import emailService from '../../utils/email.service';
+import logger from '../../config/logger';
 
 export class AuthService {
   async register(data: {
@@ -189,6 +191,112 @@ export class AuthService {
     }
   }
 
+  /**
+   * Generate a temporary password (6-digit numeric)
+   */
+  private generateTemporaryPassword(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  /**
+   * Change password - User must provide current password
+   */
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{ message: string }> {
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (!user.isActive) {
+      throw new Error('Account is inactive. Please contact support.');
+    }
+
+    // Verify current password
+    const isValidPassword = await AuthUtils.comparePassword(currentPassword, user.passwordHash);
+    if (!isValidPassword) {
+      throw new Error('Current password is incorrect');
+    }
+
+    // Validate new password
+    if (newPassword.length < 6) {
+      throw new Error('New password must be at least 6 characters long');
+    }
+
+    if (currentPassword === newPassword) {
+      throw new Error('New password must be different from current password');
+    }
+
+    // Hash new password
+    const newPasswordHash = await AuthUtils.hashPassword(newPassword);
+
+    // Update password
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: newPasswordHash },
+    });
+
+    logger.info(`Password changed successfully for user ${user.email}`);
+
+    return { message: 'Password changed successfully' };
+  }
+
+  /**
+   * Forgot password - Generate temporary password and send via email
+   */
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      // For security, don't reveal if email exists
+      logger.info(`Forgot password attempt for non-existent email: ${email}`);
+      return { message: 'If the email exists, a temporary password has been sent.' };
+    }
+
+    if (!user.isActive) {
+      throw new Error('Account is inactive. Please contact support.');
+    }
+
+    // Generate temporary password
+    const temporaryPassword = this.generateTemporaryPassword();
+    
+    logger.info(`🔐 Generated temporary password for ${user.email}: ${temporaryPassword}`);
+    logger.info(`   Password length: ${temporaryPassword.length}`);
+    logger.info(`   Password type: ${typeof temporaryPassword}`);
+    
+    const passwordHash = await AuthUtils.hashPassword(temporaryPassword);
+    
+    logger.info(`   Hash generated: ${passwordHash.substring(0, 30)}...`);
+
+    // Update user password
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
+
+    // Send email with temporary password
+    const emailSent = await emailService.sendPasswordResetEmail(
+      user.email,
+      temporaryPassword,
+      `${user.firstName} ${user.lastName}`
+    );
+
+    if (!emailSent) {
+      logger.error(`Failed to send password reset email to ${user.email}`);
+      // Don't throw error to avoid revealing if email exists
+    } else {
+      logger.info(`Password reset email sent successfully to ${user.email}`);
+    }
+
+    return { message: 'If the email exists, a temporary password has been sent.' };
+  }
+
   async requestPasswordReset(email: string): Promise<string> {
     const user = await prisma.user.findUnique({ where: { email } });
 
@@ -352,3 +460,4 @@ export class AuthService {
     return sanitized;
   }
 }
+
