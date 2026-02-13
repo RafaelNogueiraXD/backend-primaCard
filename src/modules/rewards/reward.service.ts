@@ -23,8 +23,8 @@ export class RewardService {
         name: data.name,
         description: data.description,
         costPoints: data.costPoints,
-        allowedBuckets: data.allowedBuckets,
-        excludedBuckets: data.excludedBuckets,
+        allowedBuckets: JSON.stringify(data.allowedBuckets),
+        excludedBuckets: JSON.stringify(data.excludedBuckets),
         terms: data.terms,
         stockQuantity: data.stockQuantity,
         stockRemaining: data.stockQuantity,
@@ -46,6 +46,20 @@ export class RewardService {
 
     if (filters.active !== undefined) {
       where.isActive = filters.active;
+    }
+
+    // For active store listing, hide rewards with exhausted stock
+    if (filters.active === true) {
+      where.OR = [
+        { stockQuantity: null },
+        { stockRemaining: { gt: 0 } },
+        {
+          AND: [
+            { stockRemaining: null },
+            { stockQuantity: { gt: 0 } },
+          ],
+        },
+      ];
     }
 
     if (filters.professionalId) {
@@ -96,6 +110,95 @@ export class RewardService {
     });
   }
 
+  async update(
+    rewardId: string,
+    data: {
+      role: string;
+      professionalId?: string;
+      name?: string;
+      description?: string;
+      costPoints?: number;
+      allowedBuckets?: string[];
+      excludedBuckets?: string[];
+      terms?: string;
+      stockQuantity?: number;
+      isActive?: boolean;
+    }
+  ): Promise<any> {
+    const reward = await prisma.reward.findUnique({
+      where: { id: rewardId },
+    });
+
+    if (!reward) {
+      throw new Error('Reward not found');
+    }
+
+    if (data.role === 'PROFESSIONAL') {
+      if (!data.professionalId || reward.professionalId !== data.professionalId) {
+        throw new Error('Not authorized');
+      }
+    } else if (data.role !== 'ADMIN') {
+      throw new Error('Not authorized');
+    }
+
+    const updateData: any = {
+      name: data.name,
+      description: data.description,
+      costPoints: data.costPoints,
+      terms: data.terms,
+      isActive: data.isActive,
+    };
+
+    if (data.allowedBuckets !== undefined) {
+      updateData.allowedBuckets = JSON.stringify(data.allowedBuckets);
+    }
+
+    if (data.excludedBuckets !== undefined) {
+      updateData.excludedBuckets = JSON.stringify(data.excludedBuckets);
+    }
+
+    if (data.stockQuantity !== undefined) {
+      updateData.stockQuantity = data.stockQuantity;
+
+      if (reward.stockRemaining === null) {
+        updateData.stockRemaining = data.stockQuantity;
+      } else if (reward.stockRemaining > data.stockQuantity) {
+        updateData.stockRemaining = data.stockQuantity;
+      }
+    }
+
+    return prisma.reward.update({
+      where: { id: rewardId },
+      data: updateData,
+    });
+  }
+
+  async delete(
+    rewardId: string,
+    data: { role: string; professionalId?: string }
+  ): Promise<any> {
+    const reward = await prisma.reward.findUnique({
+      where: { id: rewardId },
+    });
+
+    if (!reward) {
+      throw new Error('Reward not found');
+    }
+
+    if (data.role === 'PROFESSIONAL') {
+      if (!data.professionalId || reward.professionalId !== data.professionalId) {
+        throw new Error('Not authorized');
+      }
+    } else if (data.role !== 'ADMIN') {
+      throw new Error('Not authorized');
+    }
+
+    return prisma.reward.update({
+      where: { id: rewardId },
+      data: { isActive: false },
+    });
+  }
+
   async redeem(
     rewardId: string,
     userId: string,
@@ -118,8 +221,10 @@ export class RewardService {
       throw new Error('Reward not found or inactive');
     }
 
+    const effectiveStockRemaining = reward.stockRemaining ?? reward.stockQuantity;
+
     // Check stock
-    if (reward.stockRemaining !== null && reward.stockRemaining <= 0) {
+    if (effectiveStockRemaining !== null && effectiveStockRemaining <= 0) {
       throw new Error('Reward out of stock');
     }
 
@@ -131,8 +236,8 @@ export class RewardService {
         customBreakdown,
         userId,
         reward.costPoints,
-        reward.allowedBuckets as string[],
-        reward.excludedBuckets as string[]
+        JSON.parse(reward.allowedBuckets) as string[],
+        JSON.parse(reward.excludedBuckets) as string[]
       );
 
       if (!validation.valid) {
@@ -145,8 +250,8 @@ export class RewardService {
       const affordability = await pointsService.canAfford(
         userId,
         reward.costPoints,
-        reward.allowedBuckets as string[],
-        reward.excludedBuckets as string[]
+        JSON.parse(reward.allowedBuckets) as string[],
+        JSON.parse(reward.excludedBuckets) as string[]
       );
 
       if (!affordability.canAfford) {
@@ -159,11 +264,18 @@ export class RewardService {
     // Create redemption with transaction
     const redemption = await prisma.$transaction(async (tx) => {
       // Deduct stock
-      if (reward.stockRemaining !== null) {
-        await tx.reward.update({
-          where: { id: rewardId },
-          data: { stockRemaining: { decrement: 1 } },
-        });
+      if (effectiveStockRemaining !== null) {
+        if (reward.stockRemaining === null) {
+          await tx.reward.update({
+            where: { id: rewardId },
+            data: { stockRemaining: effectiveStockRemaining - 1 },
+          });
+        } else {
+          await tx.reward.update({
+            where: { id: rewardId },
+            data: { stockRemaining: { decrement: 1 } },
+          });
+        }
       }
 
       // Create redemption in HOLD status
@@ -174,7 +286,7 @@ export class RewardService {
           rewardId,
           userId,
           status: 'HOLD',
-          holdBreakdown: breakdown,
+          holdBreakdown: JSON.stringify(breakdown),
           expiresAt,
           idempotencyKey,
         },

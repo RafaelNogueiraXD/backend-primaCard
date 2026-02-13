@@ -3,6 +3,7 @@ import { body } from 'express-validator';
 import { UserController } from './user.controller';
 import { validate } from '../../middleware/validation';
 import { authenticate } from '../../middleware/auth';
+import { authorizeRoles } from '../../middleware/roleAuth';
 
 const router = Router();
 const userController = new UserController();
@@ -309,5 +310,153 @@ router.patch('/notifications/read-all', userController.markAllNotificationsAsRea
  *                       example: RAFNOG1234
  */
 router.get('/referral-code', userController.getReferralCode.bind(userController));
+
+// ============= ADMIN ROUTES =============
+
+/**
+ * @swagger
+ * /users/admin/list:
+ *   get:
+ *     summary: List all users (Admin only)
+ *     tags: [Users - Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: role
+ *         schema:
+ *           type: string
+ *           enum: [PATIENT, PROFESSIONAL, ADMIN]
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: perPage
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Users list retrieved successfully
+ *       403:
+ *         description: Not authorized - Admin only
+ */
+router.get('/admin/list', authenticate, authorizeRoles(['ADMIN']), userController.listAllUsers.bind(userController));
+
+/**
+ * @swagger
+ * /users/patients:
+ *   get:
+ *     summary: List all patients (Admin or Professional)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: perPage
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Patients list retrieved successfully
+ *       403:
+ *         description: Not authorized
+ */
+router.get('/patients', authenticate, authorizeRoles(['ADMIN', 'PROFESSIONAL']), userController.listPatients.bind(userController));
+
+/**
+ * @swagger
+ * /users/admin/{userId}:
+ *   get:
+ *     summary: Get user details (Admin only)
+ *     tags: [Users - Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User details retrieved successfully
+ *       403:
+ *         description: Not authorized - Admin only
+ *       404:
+ *         description: User not found
+ */
+router.get('/admin/:userId', authenticate, authorizeRoles(['ADMIN']), userController.getUserDetails.bind(userController));
+
+/**
+ * @swagger
+ * /users/admin/{userId}:
+ *   patch:
+ *     summary: Update user (Admin only)
+ *     tags: [Users - Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               registrationNumber:
+ *                 type: string
+ *               specialty:
+ *                 type: string
+ *               bio:
+ *                 type: string
+ *               isActive:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *       403:
+ *         description: Not authorized - Admin only
+ *       404:
+ *         description: User not found
+ */
+router.patch(
+  '/admin/:userId',
+  authenticate,
+  authorizeRoles(['ADMIN']),
+  [
+    body('firstName').optional().trim(),
+    body('lastName').optional().trim(),
+    body('email').optional().isEmail().normalizeEmail(),
+    body('phone').optional().trim(),
+    body('registrationNumber').optional().trim(),
+    body('specialty').optional().trim(),
+    body('bio').optional().trim(),
+    body('isActive').optional().isBoolean(),
+  ],
+  validate,
+  userController.adminUpdateUser.bind(userController)
+);
 
 export default router;

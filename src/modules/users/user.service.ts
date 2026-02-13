@@ -359,6 +359,192 @@ export class UserService {
     return { referralCode };
   }
 
+  // ============= ADMIN METHODS =============
+
+  async listAllUsers(filters: {
+    role?: string;
+    page?: number;
+    perPage?: number;
+  }): Promise<{ data: any[]; meta: any }> {
+    const page = filters.page || 1;
+    const perPage = filters.perPage || 20;
+    const skip = (page - 1) * perPage;
+
+    const where: any = {};
+
+    if (filters.role) {
+      where.role = filters.role;
+    }
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        skip,
+        take: perPage,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          professional: true,
+        },
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    return {
+      data: users.map((u) => this.sanitizeUser(u)),
+      meta: {
+        page,
+        perPage,
+        total,
+        totalPages: Math.ceil(total / perPage),
+      },
+    };
+  }
+
+  async listPatients(filters: {
+    search?: string;
+    page?: number;
+    perPage?: number;
+  }): Promise<{ data: any[]; meta: any }> {
+    const page = filters.page || 1;
+    const perPage = filters.perPage || 50;
+    const skip = (page - 1) * perPage;
+
+    const where: any = {
+      role: 'PATIENT',
+    };
+
+    if (filters.search) {
+      where.OR = [
+        { firstName: { contains: filters.search, mode: 'insensitive' } },
+        { lastName: { contains: filters.search, mode: 'insensitive' } },
+        { email: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        skip,
+        take: perPage,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    return {
+      data: users.map((u) => this.sanitizeUser(u)),
+      meta: {
+        page,
+        perPage,
+        total,
+        totalPages: Math.ceil(total / perPage),
+      },
+    };
+  }
+
+  async getUserDetails(userId: string): Promise<any> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        professional: true,
+      },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return this.sanitizeUser(user);
+  }
+
+  async adminUpdateUser(
+    userId: string,
+    data: {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      phone?: string;
+      registrationNumber?: string;
+      specialty?: string;
+      bio?: string;
+      isActive?: boolean;
+    }
+  ): Promise<any> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { professional: true },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Check if email is being updated and if it's already in use
+    if (data.email && data.email !== user.email) {
+      const existingEmail = await prisma.user.findFirst({
+        where: {
+          email: data.email,
+          NOT: { id: userId },
+        },
+      });
+
+      if (existingEmail) {
+        throw new Error('Email already in use');
+      }
+    }
+
+    // Check if phone is being updated and if it's already in use
+    if (data.phone && data.phone !== user.phone) {
+      const existingPhone = await prisma.user.findFirst({
+        where: {
+          phone: data.phone,
+          NOT: { id: userId },
+        },
+      });
+
+      if (existingPhone) {
+        throw new Error('Phone number already in use');
+      }
+    }
+
+    // Update user basic info
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        isActive: data.isActive,
+      },
+      include: {
+        professional: true,
+      },
+    });
+
+    // If user is a professional and has professional-specific data to update
+    if (user.professional && (data.registrationNumber || data.specialty || data.bio !== undefined)) {
+      await prisma.professional.update({
+        where: { userId },
+        data: {
+          registrationNumber: data.registrationNumber,
+          specialty: data.specialty,
+          bio: data.bio,
+        },
+      });
+
+      // Reload to get updated professional data
+      const reloadedUser = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { professional: true },
+      });
+
+      return this.sanitizeUser(reloadedUser);
+    }
+
+    return this.sanitizeUser(updatedUser);
+  }
+
   private async generateUniqueReferralCode(user: { firstName: string; lastName: string; id: string }): Promise<string> {
     const maxAttempts = 10;
     

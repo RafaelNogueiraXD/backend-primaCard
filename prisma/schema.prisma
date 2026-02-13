@@ -6,73 +6,18 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  PATIENT
-  PROFESSIONAL
-  ADMIN
-}
-
-enum AppointmentStatus {
-  REQUESTED
-  SCHEDULED
-  CANCELED_BY_PATIENT
-  CANCELED_BY_PROFESSIONAL
-  COMPLETED
-  NO_SHOW_PATIENT
-  NO_SHOW_PROFESSIONAL
-  AUTO_COMPLETED
-}
-
-enum PunctualityFlag {
-  EXACT
-  WITHIN_TOLERANCE
-  LATE
-  NO_SHOW
-}
-
-enum RedemptionStatus {
-  HOLD
-  REDEEMED
-  EXPIRED
-  CANCELED
-  REFUNDED
-}
-
-enum PointsCause {
-  PROCEDURE_COMPLETED
-  REFERRAL_COMPLETED
-  PUNCTUAL
-  EXACT_TIME
-  LATE_CANCEL_PENALTY
-  NO_SHOW_PENALTY
-  REWARD_REDEMPTION
-  ADMIN_ADJUSTMENT
-  REFUND
-  REVIEW_RATING
-  SURVEY_RESPONSE
-}
-
-enum ReferralStatus {
-  PENDING
-  COMPLETED
-  EXPIRED
-}
-
-enum NotificationType {
-  APPOINTMENT_REQUESTED
-  APPOINTMENT_ACCEPTED
-  APPOINTMENT_CANCELED
-  APPOINTMENT_REMINDER
-  REVIEW_PENDING
-  POINTS_EARNED
-  REDEMPTION_EXPIRING
-  REDEMPTION_CONFIRMED
-  REFERRAL_COMPLETED
-}
+// Note: SQLite doesn't support enums, so we use String with validation in the application layer
+// UserRole: PATIENT, PROFESSIONAL, ADMIN
+// AppointmentStatus: REQUESTED, SCHEDULED, CANCELED_BY_PATIENT, CANCELED_BY_PROFESSIONAL, COMPLETED, NO_SHOW_PATIENT, NO_SHOW_PROFESSIONAL, AUTO_COMPLETED
+// PunctualityFlag: EXACT, WITHIN_TOLERANCE, LATE, NO_SHOW
+// RedemptionStatus: HOLD, REDEEMED, EXPIRED, CANCELED, REFUNDED
+// PointsCause: PROCEDURE_COMPLETED, REFERRAL_COMPLETED, PUNCTUAL, EXACT_TIME, LATE_CANCEL_PENALTY, NO_SHOW_PENALTY, REWARD_REDEMPTION, ADMIN_ADJUSTMENT, REFUND, REVIEW_RATING, SURVEY_RESPONSE
+// ReferralStatus: PENDING, COMPLETED, EXPIRED
+// NotificationType: APPOINTMENT_REQUESTED, APPOINTMENT_ACCEPTED, APPOINTMENT_CANCELED, APPOINTMENT_REMINDER, REVIEW_PENDING, POINTS_EARNED, REDEMPTION_EXPIRING, REDEMPTION_CONFIRMED, REFERRAL_COMPLETED
 
 model User {
   id              String    @id @default(uuid())
@@ -81,7 +26,7 @@ model User {
   passwordHash    String
   firstName       String
   lastName        String
-  role            UserRole
+  role            String    // PATIENT, PROFESSIONAL, ADMIN
   referralCode    String?   @unique  // Código único de indicação do usuário
   emailVerified   Boolean   @default(false)
   phoneVerified   Boolean   @default(false)
@@ -105,6 +50,7 @@ model User {
   refreshTokens           RefreshToken[]
   surveysCreated          Survey[]              @relation("SurveyCreatedBy")
   surveyResponses         SurveyResponse[]      @relation("SurveyRespondent")
+  surveysTargeted         Survey[]              @relation("SurveyTargetUser")
   
   @@map("users")
 }
@@ -116,7 +62,7 @@ model Professional {
   
   registrationNumber    String    @unique  // CRO, CRM, etc
   specialty             String
-  bio                   String?   @db.Text
+  bio                   String?
   address               String?
   city                  String?
   state                 String?
@@ -126,8 +72,8 @@ model Professional {
   averageRating         Float     @default(0)
   totalReviews          Int       @default(0)
   
-  // Schedule settings (JSON)
-  scheduleSettings      Json?     // Working hours, breaks, etc
+  // Schedule settings (stored as JSON string)
+  scheduleSettings      String?   // Working hours, breaks, etc - JSON string
   
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -147,7 +93,7 @@ model Procedure {
   
   name                  String
   category              String    // e.g., "clareamento", "limpeza"
-  description           String?   @db.Text
+  description           String?
   defaultDurationMinutes Int
   pointsGeneral         Int
   pointsCategory        Int
@@ -165,36 +111,36 @@ model Procedure {
 }
 
 model Appointment {
-  id                    String            @id @default(uuid())
+  id                    String    @id @default(uuid())
   professionalId        String
-  professional          Professional      @relation(fields: [professionalId], references: [id])
+  professional          Professional @relation(fields: [professionalId], references: [id])
   
   patientId             String
-  patient               User              @relation("PatientAppointments", fields: [patientId], references: [id])
+  patient               User      @relation("PatientAppointments", fields: [patientId], references: [id])
   
   procedureId           String
-  procedure             Procedure         @relation(fields: [procedureId], references: [id])
+  procedure             Procedure @relation(fields: [procedureId], references: [id])
   
-  // Snapshot of procedure at time of booking
-  procedureSnapshot     Json
+  // Snapshot of procedure at time of booking (JSON string)
+  procedureSnapshot     String
   
-  status                AppointmentStatus @default(REQUESTED)
+  status                String    @default("REQUESTED") // REQUESTED, SCHEDULED, CANCELED_BY_PATIENT, CANCELED_BY_PROFESSIONAL, COMPLETED, NO_SHOW_PATIENT, NO_SHOW_PROFESSIONAL, AUTO_COMPLETED
   startsAt              DateTime
   endsAt                DateTime
   location              String?
   
   // Tracking
   createdById           String
-  createdBy             User              @relation("ProfessionalAppointments", fields: [createdById], references: [id])
+  createdBy             User      @relation("ProfessionalAppointments", fields: [createdById], references: [id])
   canceledById          String?
-  canceledReason        String?           @db.Text
+  canceledReason        String?
   canceledAt            DateTime?
   
   // Check-in/out
   checkinAt             DateTime?
   checkoutAt            DateTime?
   arrivalMarkedAt       DateTime?
-  punctualityFlag       PunctualityFlag?
+  punctualityFlag       String?   // EXACT, WITHIN_TOLERANCE, LATE, NO_SHOW
   
   completedAt           DateTime?
   
@@ -202,10 +148,10 @@ model Appointment {
   pointsGrantedAt       DateTime?
   
   // Idempotency
-  idempotencyKey        String?           @unique
+  idempotencyKey        String?   @unique
   
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
   
   // Relations
   reviews               Review[]
@@ -229,8 +175,8 @@ model Review {
   
   // Main rating
   rating                Int       // 1-5 overall rating
-  comment               String?   @db.Text
-  tags                  Json?     // Array of tags
+  comment               String?
+  tags                  String?   // JSON array of tags
   
   // Additional feedback questions
   wasLate               Boolean?  // Did the person being reviewed arrive late?
@@ -263,10 +209,13 @@ model Review {
 model Survey {
   id                    String      @id @default(uuid())
   title                 String
-  description           String?     @db.Text
+  description           String?
   isActive              Boolean     @default(true)
   targetAudience        String      @default("ALL") // ALL, PATIENTS, PROFESSIONALS
-  questions             Json        // Array of survey questions
+  questions             String      // JSON array of survey questions
+
+  targetUserId           String?
+  targetUser             User?       @relation("SurveyTargetUser", fields: [targetUserId], references: [id])
   
   createdById           String
   createdBy             User        @relation("SurveyCreatedBy", fields: [createdById], references: [id])
@@ -287,7 +236,7 @@ model SurveyResponse {
   respondentId          String
   respondent            User        @relation("SurveyRespondent", fields: [respondentId], references: [id])
   
-  answers               Json        // Array of answers matching the survey questions
+  answers               String      // JSON array of answers matching the survey questions
   
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
@@ -303,12 +252,12 @@ model PointTransaction {
   
   bucket                String      // "general" or category name
   delta                 Int         // Can be positive or negative
-  cause                 PointsCause
+  cause                 String      // PROCEDURE_COMPLETED, REFERRAL_COMPLETED, PUNCTUAL, EXACT_TIME, LATE_CANCEL_PENALTY, NO_SHOW_PENALTY, REWARD_REDEMPTION, ADMIN_ADJUSTMENT, REFUND, REVIEW_RATING, SURVEY_RESPONSE
   
   referenceType         String?     // "appointment", "redemption", "referral"
   referenceId           String?
   
-  metadata              Json?
+  metadata              String?     // JSON string
   
   createdAt             DateTime    @default(now())
   
@@ -323,15 +272,15 @@ model Reward {
   professional          Professional? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
   
   name                  String
-  description           String?   @db.Text
+  description           String?
   costPoints            Int
   
-  // Bucket restrictions
-  allowedBuckets        Json      // Array of allowed bucket names
-  excludedBuckets       Json      // Array of excluded bucket names
+  // Bucket restrictions (JSON strings)
+  allowedBuckets        String    // JSON array of allowed bucket names
+  excludedBuckets       String    // JSON array of excluded bucket names
   
   isActive              Boolean   @default(true)
-  terms                 String?   @db.Text
+  terms                 String?
   
   // Stock management (optional)
   stockQuantity         Int?
@@ -347,33 +296,33 @@ model Reward {
 }
 
 model Redemption {
-  id                    String            @id @default(uuid())
+  id                    String    @id @default(uuid())
   rewardId              String
-  reward                Reward            @relation(fields: [rewardId], references: [id])
+  reward                Reward    @relation(fields: [rewardId], references: [id])
   
   userId                String
-  user                  User              @relation(fields: [userId], references: [id])
+  user                  User      @relation(fields: [userId], references: [id])
   
-  status                RedemptionStatus  @default(HOLD)
+  status                String    @default("HOLD") // HOLD, REDEEMED, EXPIRED, CANCELED, REFUNDED
   
-  // Breakdown of points used per bucket
-  holdBreakdown         Json
+  // Breakdown of points used per bucket (JSON string)
+  holdBreakdown         String
   
   // OTP for validation
   otpCodeHash           String?
   otpExpiresAt          DateTime?
   
-  requestedAt           DateTime          @default(now())
+  requestedAt           DateTime  @default(now())
   expiresAt             DateTime
   redeemedAt            DateTime?
   canceledAt            DateTime?
   refundedAt            DateTime?
   
   // Idempotency
-  idempotencyKey        String?           @unique
+  idempotencyKey        String?   @unique
   
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
   
   @@index([userId, status])
   @@index([status, expiresAt])
@@ -381,27 +330,27 @@ model Redemption {
 }
 
 model Referral {
-  id                    String          @id @default(uuid())
+  id                    String    @id @default(uuid())
   referrerId            String
-  referrer              User            @relation("Referrer", fields: [referrerId], references: [id])
+  referrer              User      @relation("Referrer", fields: [referrerId], references: [id])
   
   referredId            String?
-  referred              User?           @relation("Referred", fields: [referredId], references: [id])
+  referred              User?     @relation("Referred", fields: [referredId], references: [id])
   
   // Contact info before user signs up
   referredEmail         String?
   referredPhone         String?
   
-  status                ReferralStatus  @default(PENDING)
+  status                String    @default("PENDING") // PENDING, COMPLETED, EXPIRED
   
   // When the referred user completes first appointment
   completedAt           DateTime?
   awardedAt             DateTime?
   
-  ruleVersion           String?         // Track which referral rules applied
+  ruleVersion           String?   // Track which referral rules applied
   
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
   
   @@index([referrerId, status])
   @@unique([referrerId, referredEmail])
@@ -409,20 +358,20 @@ model Referral {
 }
 
 model Notification {
-  id                    String            @id @default(uuid())
+  id                    String    @id @default(uuid())
   userId                String
-  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  type                  NotificationType
+  type                  String    // APPOINTMENT_REQUESTED, APPOINTMENT_ACCEPTED, APPOINTMENT_CANCELED, APPOINTMENT_REMINDER, REVIEW_PENDING, POINTS_EARNED, REDEMPTION_EXPIRING, REDEMPTION_CONFIRMED, REFERRAL_COMPLETED
   title                 String
-  message               String            @db.Text
+  message               String
   
-  data                  Json?             // Additional data
+  data                  String?   // JSON string for additional data
   
-  isRead                Boolean           @default(false)
+  isRead                Boolean   @default(false)
   readAt                DateTime?
   
-  createdAt             DateTime          @default(now())
+  createdAt             DateTime  @default(now())
   
   @@index([userId, isRead])
   @@index([userId, createdAt])
@@ -438,8 +387,8 @@ model AuditLog {
   entityType            String    // "appointment", "reward", etc
   entityId              String
   
-  dataBefore            Json?
-  dataAfter             Json?
+  dataBefore            String?   // JSON string
+  dataAfter             String?   // JSON string
   
   ipAddress             String?
   userAgent             String?
@@ -473,7 +422,7 @@ model RefreshToken {
   userId                String
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  token                 String    @unique @db.VarChar(500)
+  token                 String    @unique
   expiresAt             DateTime
   
   createdAt             DateTime  @default(now())
@@ -486,7 +435,7 @@ model DomainEvent {
   id                    String    @id @default(uuid())
   idempotencyKey        String    @unique
   type                  String
-  payload               Json
+  payload               String    // JSON string
   processedAt           DateTime?
   
   createdAt             DateTime  @default(now())

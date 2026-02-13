@@ -59,7 +59,8 @@ export const config = {
   adminApiKey: process.env.ADMIN_API_KEY || 'change-me',
   
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:8080',
+    // Permite qualquer origem - útil para desenvolvimento
+    origin: '*',
   },
   
   logLevel: process.env.LOG_LEVEL || 'info',

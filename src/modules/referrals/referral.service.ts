@@ -142,6 +142,15 @@ export class ReferralService {
     return referral;
   }
 
+  /**
+   * Complete a referral and award points to the referrer
+   * 
+   * This method is called when a referred user completes their first appointment.
+   * It updates the referral status to COMPLETED and awards the configured points
+   * to the referrer as a reward for bringing a valuable user to the system.
+   * 
+   * @param referralId - The ID of the referral to complete
+   */
   async complete(referralId: string): Promise<any> {
     const referral = await prisma.referral.findUnique({
       where: { id: referralId },
@@ -165,7 +174,7 @@ export class ReferralService {
       },
     });
 
-    // Grant points to referrer
+    // Grant points to referrer - THIS IS WHERE THE REFERRER GETS REWARDED
     await pointsService.grantReferralPoints(referral.referrerId, referralId);
 
     return updated;
@@ -190,8 +199,19 @@ export class ReferralService {
     }
   }
 
+  /**
+   * Check and complete referral rewards based on actual system usage
+   * 
+   * This method implements the anti-fraud referral system:
+   * - Referrals are only completed (and points awarded) when the referred user
+   *   completes their FIRST appointment
+   * - This prevents abuse where users create fake accounts just to get referral points
+   * - The referrer only gets rewarded when the referred user provides real value to the system
+   * 
+   * @param userId - The ID of the referred user whose first appointment was completed
+   */
   async checkAndCompleteReferral(userId: string): Promise<void> {
-    // Find referrals where this user is the referred
+    // Find all pending referrals where this user is the referred one
     const referrals = await prisma.referral.findMany({
       where: {
         referredId: userId,
@@ -199,7 +219,7 @@ export class ReferralService {
       },
     });
 
-    // Check if user has completed their first appointment
+    // Only award points if this user has completed at least one appointment
     const completedAppointment = await prisma.appointment.findFirst({
       where: {
         patientId: userId,
@@ -208,7 +228,8 @@ export class ReferralService {
     });
 
     if (completedAppointment) {
-      // Complete all pending referrals
+      // Complete all pending referrals and award points to referrers
+      // This is the moment when the referrer receives their reward points
       for (const referral of referrals) {
         await this.complete(referral.id);
       }

@@ -188,6 +188,16 @@ export class PointsService {
     }
   }
 
+  /**
+   * Grant referral points to a user
+   * 
+   * This method awards points to a referrer when their referred user completes
+   * their first appointment. This is part of the anti-fraud referral system where
+   * points are only given when the referred user provides real value to the platform.
+   * 
+   * @param referrerId - The ID of the user who made the referral
+   * @param referralId - The ID of the referral record
+   */
   async grantReferralPoints(referrerId: string, referralId: string): Promise<void> {
     await this.createTransaction({
       userId: referrerId,

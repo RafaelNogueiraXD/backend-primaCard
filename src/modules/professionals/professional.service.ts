@@ -59,7 +59,7 @@ export class ProfessionalService {
       prisma.professional.count({ where }),
     ]);
 
-    // Calculate average rating for each professional
+    // Calculate average rating for each professional and parse scheduleSettings
     const dataWithRatings = await Promise.all(
       data.map(async (professional) => {
         const reviews = await prisma.review.findMany({
@@ -72,8 +72,21 @@ export class ProfessionalService {
             ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
             : 0;
 
+        // Parse scheduleSettings from JSON string if needed (SQLite stores as string)
+        let parsedScheduleSettings = null;
+        if (professional.scheduleSettings) {
+          try {
+            parsedScheduleSettings = typeof professional.scheduleSettings === 'string'
+              ? JSON.parse(professional.scheduleSettings)
+              : professional.scheduleSettings;
+          } catch (e) {
+            parsedScheduleSettings = null;
+          }
+        }
+
         return {
           ...professional,
+          scheduleSettings: parsedScheduleSettings,
           averageRating: Math.round(averageRating * 10) / 10,
           totalReviews: reviews.length,
         };
@@ -130,8 +143,22 @@ export class ProfessionalService {
         ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
         : 0;
 
+    // Parse scheduleSettings from JSON string if needed (SQLite stores as string)
+    let parsedScheduleSettings = null;
+    if (professional.scheduleSettings) {
+      try {
+        parsedScheduleSettings = typeof professional.scheduleSettings === 'string'
+          ? JSON.parse(professional.scheduleSettings)
+          : professional.scheduleSettings;
+      } catch (e) {
+        console.error('Error parsing scheduleSettings:', e);
+        parsedScheduleSettings = null;
+      }
+    }
+
     return {
       ...professional,
+      scheduleSettings: parsedScheduleSettings,
       averageRating: Math.round(averageRating * 10) / 10,
       totalReviews: reviews.length,
     };
@@ -467,7 +494,9 @@ export class ProfessionalService {
           procedureSnapshot: true,
         },
       }).then(res => res.reduce((sum, app) => {
-        const snapshot = app.procedureSnapshot as any;
+        const snapshot = typeof app.procedureSnapshot === 'string' 
+          ? JSON.parse(app.procedureSnapshot) 
+          : app.procedureSnapshot as any;
         return sum + (snapshot?.pointsGeneral || 0) + (snapshot?.pointsCategory || 0);
       }, 0)),
     ]);
@@ -580,7 +609,7 @@ export class ProfessionalService {
           userId: user.id,
           registrationNumber: `TEMP-${userId.substring(0, 8)}-${Date.now()}`, // Unique placeholder
           specialty: 'Não informado', // Placeholder
-          scheduleSettings: defaultSettings,
+          scheduleSettings: JSON.stringify(defaultSettings),
         },
         select: { scheduleSettings: true },
       });
@@ -591,7 +620,10 @@ export class ProfessionalService {
       return defaultSettings;
     }
 
-    return professional.scheduleSettings;
+    // Parse JSON string back to object
+    return typeof professional.scheduleSettings === 'string' 
+      ? JSON.parse(professional.scheduleSettings) 
+      : professional.scheduleSettings;
   }
 
   async updateScheduleSettings(userId: string, settings: any): Promise<any> {
@@ -612,10 +644,10 @@ export class ProfessionalService {
             userId: user.id,
             registrationNumber: `TEMP-${userId.substring(0, 8)}-${Date.now()}`, // Unique placeholder
             specialty: 'Não informado', // Placeholder
-            scheduleSettings: settings,
+            scheduleSettings: JSON.stringify(settings),
           },
         });
-        return newProfessional.scheduleSettings;
+        return newProfessional.scheduleSettings ? JSON.parse(newProfessional.scheduleSettings) : null;
       }
 
       throw new Error('Professional not found');
@@ -623,10 +655,10 @@ export class ProfessionalService {
 
     const updated = await prisma.professional.update({
       where: { id: professional.id },
-      data: { scheduleSettings: settings },
+      data: { scheduleSettings: JSON.stringify(settings) },
       select: { scheduleSettings: true },
     });
 
-    return updated.scheduleSettings;
+    return updated.scheduleSettings ? JSON.parse(updated.scheduleSettings) : null;
   }
 }

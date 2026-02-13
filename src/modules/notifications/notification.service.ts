@@ -1,5 +1,8 @@
 import prisma from '../../config/database';
-import { Prisma, NotificationType } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+
+// SQLite doesn't support enums, so we use string types
+type NotificationType = 'APPOINTMENT_REQUESTED' | 'APPOINTMENT_ACCEPTED' | 'APPOINTMENT_CANCELED' | 'APPOINTMENT_REMINDER' | 'REVIEW_PENDING' | 'POINTS_EARNED' | 'REDEMPTION_EXPIRING' | 'REDEMPTION_CONFIRMED' | 'REFERRAL_COMPLETED';
 
 export class NotificationService {
   /**
@@ -18,7 +21,7 @@ export class NotificationService {
         type: data.type,
         title: data.title,
         message: data.message,
-        data: data.data || {},
+        data: JSON.stringify(data.data || {}),
       },
     });
 
@@ -41,7 +44,7 @@ export class NotificationService {
         type: n.type,
         title: n.title,
         message: n.message,
-        data: n.data || {},
+        data: JSON.stringify(n.data || {}),
       })),
     });
 

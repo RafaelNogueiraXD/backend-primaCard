@@ -17,10 +17,26 @@ export class SurveyService {
       options?: string[]; // For multiple choice
     }>;
     createdById: string;
+    targetUserId?: string;
   }): Promise<any> {
     // Validate questions
     if (!data.questions || data.questions.length === 0) {
       throw new Error('Survey must have at least one question');
+    }
+
+    if (data.targetUserId) {
+      const targetUser = await prisma.user.findUnique({
+        where: { id: data.targetUserId },
+        select: { id: true, role: true },
+      });
+
+      if (!targetUser) {
+        throw new Error('Target user not found');
+      }
+
+      if (targetUser.role !== 'PATIENT') {
+        throw new Error('Target user must be a patient');
+      }
     }
 
     const survey = await prisma.survey.create({
@@ -28,11 +44,20 @@ export class SurveyService {
         title: data.title,
         description: data.description,
         targetAudience: data.targetAudience,
-        questions: data.questions,
+        questions: JSON.stringify(data.questions),
         createdById: data.createdById,
+        targetUserId: data.targetUserId,
       },
       include: {
         createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        targetUser: {
           select: {
             id: true,
             firstName: true,
@@ -54,6 +79,14 @@ export class SurveyService {
       where: { id: surveyId },
       include: {
         createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        targetUser: {
           select: {
             id: true,
             firstName: true,
@@ -117,6 +150,14 @@ export class SurveyService {
               lastName: true,
             },
           },
+          targetUser: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
           responses: {
             select: {
               id: true,
@@ -154,6 +195,7 @@ export class SurveyService {
       isActive?: boolean;
       targetAudience?: string;
       questions?: Array<any>;
+      targetUserId?: string | null;
     }
   ): Promise<any> {
     const survey = await prisma.survey.findUnique({
@@ -164,6 +206,23 @@ export class SurveyService {
       throw new Error('Survey not found');
     }
 
+    if (data.targetUserId !== undefined) {
+      if (data.targetUserId) {
+        const targetUser = await prisma.user.findUnique({
+          where: { id: data.targetUserId },
+          select: { id: true, role: true },
+        });
+
+        if (!targetUser) {
+          throw new Error('Target user not found');
+        }
+
+        if (targetUser.role !== 'PATIENT') {
+          throw new Error('Target user must be a patient');
+        }
+      }
+    }
+
     const updated = await prisma.survey.update({
       where: { id: surveyId },
       data: {
@@ -171,10 +230,19 @@ export class SurveyService {
         description: data.description,
         isActive: data.isActive,
         targetAudience: data.targetAudience,
-        questions: data.questions,
+        questions: data.questions ? JSON.stringify(data.questions) : undefined,
+        targetUserId: data.targetUserId,
       },
       include: {
         createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        targetUser: {
           select: {
             id: true,
             firstName: true,
@@ -244,7 +312,7 @@ export class SurveyService {
     }
 
     // Validate answers match questions
-    const questions = survey.questions as any[];
+    const questions = JSON.parse(survey.questions as string) as any[];
     const requiredQuestions = questions.filter((q) => q.required);
 
     for (const requiredQ of requiredQuestions) {
@@ -258,7 +326,7 @@ export class SurveyService {
       data: {
         surveyId: data.surveyId,
         respondentId: data.respondentId,
-        answers: data.answers,
+        answers: JSON.stringify(data.answers),
       },
       include: {
         survey: {
@@ -297,11 +365,11 @@ export class SurveyService {
             cause: 'SURVEY_RESPONSE',
             referenceType: 'Survey',
             referenceId: data.surveyId,
-            metadata: {
+            metadata: JSON.stringify({
               surveyId: data.surveyId,
               surveyTitle: response.survey.title,
               questionsAnswered: data.answers.length,
-            },
+            }),
           },
         });
       }
@@ -366,7 +434,7 @@ export class SurveyService {
     });
 
     if (!user) {
-      throw new Error('User not found');
+      return [];
     }
 
     // Determine target audience filter
@@ -382,6 +450,10 @@ export class SurveyService {
       where: {
         isActive: true,
         targetAudience: { in: targetAudiences },
+        OR: [
+          { targetUserId: null },
+          { targetUserId: userId },
+        ],
         responses: {
           none: {
             respondentId: userId,

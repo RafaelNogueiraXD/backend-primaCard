@@ -122,6 +122,100 @@ export class RewardController {
     }
   }
 
+  async update(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const userId = req.user!.userId;
+      const role = req.user!.role;
+      const { name, description, costPoints, allowedBuckets, excludedBuckets, terms, stockQuantity, isActive } = req.body;
+
+      let professionalId: string | undefined;
+
+      if (role === 'PROFESSIONAL') {
+        const professional = await prisma.professional.findUnique({
+          where: { userId },
+        });
+
+        if (!professional) {
+          res.status(403).json({
+            errors: [{ message: 'Not authorized - user is not a professional' }],
+          });
+          return;
+        }
+
+        professionalId = professional.id;
+      } else if (role !== 'ADMIN') {
+        res.status(403).json({
+          errors: [{ message: 'Not authorized - professionals or admins only' }],
+        });
+        return;
+      }
+
+      const reward = await rewardService.update(id, {
+        role,
+        professionalId,
+        name,
+        description,
+        costPoints,
+        allowedBuckets,
+        excludedBuckets,
+        terms,
+        stockQuantity,
+        isActive,
+      });
+
+      logger.info(`Reward updated: ${id}`);
+      res.json({ data: reward });
+    } catch (error: any) {
+      logger.error('Error updating reward:', error);
+      const statusCode = error.message === 'Not authorized' ? 403 : error.message === 'Reward not found' ? 404 : 400;
+      res.status(statusCode).json({
+        errors: [{ message: error.message || 'Failed to update reward' }],
+      });
+    }
+  }
+
+  async delete(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const userId = req.user!.userId;
+      const role = req.user!.role;
+
+      let professionalId: string | undefined;
+
+      if (role === 'PROFESSIONAL') {
+        const professional = await prisma.professional.findUnique({
+          where: { userId },
+        });
+
+        if (!professional) {
+          res.status(403).json({
+            errors: [{ message: 'Not authorized - user is not a professional' }],
+          });
+          return;
+        }
+
+        professionalId = professional.id;
+      } else if (role !== 'ADMIN') {
+        res.status(403).json({
+          errors: [{ message: 'Not authorized - professionals or admins only' }],
+        });
+        return;
+      }
+
+      const reward = await rewardService.delete(id, { role, professionalId });
+
+      logger.info(`Reward deactivated: ${id}`);
+      res.json({ data: reward, message: 'Reward deactivated successfully' });
+    } catch (error: any) {
+      logger.error('Error deleting reward:', error);
+      const statusCode = error.message === 'Not authorized' ? 403 : error.message === 'Reward not found' ? 404 : 400;
+      res.status(statusCode).json({
+        errors: [{ message: error.message || 'Failed to delete reward' }],
+      });
+    }
+  }
+
   async confirmRedemption(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;

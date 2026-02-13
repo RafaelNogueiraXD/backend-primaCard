@@ -41,7 +41,9 @@ export const closeEvaluationWindows = cron.schedule('0 3 * * *', async () => {
         // );
 
         // Grant points regardless (fallback mechanism)
-        const snapshot = appointment.procedureSnapshot as any;
+        const snapshot = typeof appointment.procedureSnapshot === 'string' 
+          ? JSON.parse(appointment.procedureSnapshot) 
+          : appointment.procedureSnapshot as any;
 
         await pointsService.grantProcedurePoints(
           appointment.id,

@@ -114,7 +114,7 @@ export class ReviewService {
         targetId: data.targetId,
         rating: data.rating,
         comment: data.comment,
-        tags: data.tags || [],
+        tags: JSON.stringify(data.tags || []),
         // Feedback fields
         wasLate: data.wasLate,
         lateMinutes: data.lateMinutes,
@@ -191,12 +191,12 @@ export class ReviewService {
             cause: 'REVIEW_RATING',
             referenceType: 'review',
             referenceId: review.id,
-            metadata: {
+            metadata: JSON.stringify({
               rating: data.rating,
               reviewId: review.id,
               appointmentId: appointment.id,
               description: `Pontos recebidos por avaliação de ${data.rating} estrelas`,
-            },
+            }),
           },
         });
       }
@@ -403,7 +403,7 @@ export class ReviewService {
       data: {
         ...(data.rating && { rating: data.rating }),
         ...(data.comment !== undefined && { comment: data.comment }),
-        ...(data.tags && { tags: data.tags }),
+        ...(data.tags && { tags: JSON.stringify(data.tags) }),
       },
       include: {
         author: {

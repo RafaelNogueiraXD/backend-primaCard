@@ -98,7 +98,7 @@ export class AppointmentService {
         procedureId: data.procedureId,
         startsAt: data.startsAt,
         endsAt,
-        procedureSnapshot: snapshot,
+        procedureSnapshot: JSON.stringify(snapshot),
         status,
         createdById: data.createdById,
         idempotencyKey: data.idempotencyKey,
@@ -163,7 +163,9 @@ export class AppointmentService {
 
     // Notify patient via in-app notification
     try {
-      const snapshot = appointment.procedureSnapshot as any;
+      const snapshot = typeof appointment.procedureSnapshot === 'string' 
+        ? JSON.parse(appointment.procedureSnapshot) 
+        : appointment.procedureSnapshot as any;
       await notificationService.create({
         userId: appointment.patientId,
         type: 'APPOINTMENT_ACCEPTED',
@@ -336,14 +338,23 @@ export class AppointmentService {
       },
     });
 
-    // Grant points to patient
-    const snapshot = appointment.procedureSnapshot as any;
+    // Parse procedureSnapshot from JSON string (SQLite stores as string)
+    let snapshot: any = {};
+    try {
+      snapshot = typeof appointment.procedureSnapshot === 'string'
+        ? JSON.parse(appointment.procedureSnapshot)
+        : appointment.procedureSnapshot || {};
+    } catch (e) {
+      console.error('Error parsing procedureSnapshot:', e);
+      snapshot = {};
+    }
+    
     const pointsEarned = snapshot?.pointsGeneral || 0;
     
     await pointsService.grantProcedurePoints(
       appointmentId,
       appointment.patientId,
-      appointment.procedureSnapshot,
+      snapshot,
       appointment.punctualityFlag ?? undefined
     );
 
@@ -537,21 +548,34 @@ export class AppointmentService {
       throw new Error('Professional not found');
     }
 
-    // Get schedule settings (use defaults if not set)
-    const scheduleSettings = professional.scheduleSettings as any || {
+    // Parse schedule settings from JSON string (SQLite stores as string)
+    const defaultSettings = {
       weeklySchedule: [
-        { day: 0, enabled: false },
-        { day: 1, enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
-        { day: 2, enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
-        { day: 3, enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
-        { day: 4, enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
-        { day: 5, enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
-        { day: 6, enabled: false },
+        { day: 0, dayName: 'Domingo', enabled: false, start: '08:00', end: '17:00', break: false, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 1, dayName: 'Segunda', enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 2, dayName: 'Terça', enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 3, dayName: 'Quarta', enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 4, dayName: 'Quinta', enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 5, dayName: 'Sexta', enabled: true, start: '08:00', end: '17:00', break: true, breakStart: '12:00', breakEnd: '13:00' },
+        { day: 6, dayName: 'Sábado', enabled: false, start: '08:00', end: '12:00', break: false, breakStart: '12:00', breakEnd: '13:00' },
       ],
       appointmentDuration: 30,
       bufferTime: 5,
       blockedDates: [],
     };
+
+    // Get schedule settings - parse from JSON string if needed
+    let scheduleSettings: any = defaultSettings;
+    if (professional.scheduleSettings) {
+      try {
+        scheduleSettings = typeof professional.scheduleSettings === 'string'
+          ? JSON.parse(professional.scheduleSettings)
+          : professional.scheduleSettings;
+      } catch (e) {
+        console.error('Error parsing scheduleSettings:', e);
+        scheduleSettings = defaultSettings;
+      }
+    }
 
     // STEP 1: Check if day of week is enabled
     const dayOfWeek = date.getDay();
@@ -743,7 +767,8 @@ export class AppointmentService {
       throw new Error('Professional not found');
     }
 
-    const scheduleSettings = professional.scheduleSettings as any || {
+    // Parse schedule settings from JSON string (SQLite stores as string)
+    const defaultSettings = {
       weeklySchedule: [
         { day: 0, enabled: false },
         { day: 1, enabled: true },
@@ -755,6 +780,18 @@ export class AppointmentService {
       ],
       blockedDates: [],
     };
+
+    let scheduleSettings: any = defaultSettings;
+    if (professional.scheduleSettings) {
+      try {
+        scheduleSettings = typeof professional.scheduleSettings === 'string'
+          ? JSON.parse(professional.scheduleSettings)
+          : professional.scheduleSettings;
+      } catch (e) {
+        console.error('Error parsing scheduleSettings:', e);
+        scheduleSettings = defaultSettings;
+      }
+    }
 
     // Build set of blocked dates for fast lookup
     const blockedDates = new Set(

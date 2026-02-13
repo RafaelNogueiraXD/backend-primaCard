@@ -111,6 +111,82 @@ router.get('/:id', (req, res) => controller.getById(req, res));
 
 /**
  * @swagger
+ * /rewards/{id}:
+ *   put:
+ *     summary: Update reward (Professional owner or Admin)
+ *     tags: [Rewards]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               costPoints:
+ *                 type: integer
+ *               allowedBuckets:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               excludedBuckets:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               terms:
+ *                 type: string
+ *               stockQuantity:
+ *                 type: integer
+ *               isActive:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Reward updated successfully
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: Reward not found
+ */
+router.put('/:id', authenticate, (req, res) => controller.update(req, res));
+
+/**
+ * @swagger
+ * /rewards/{id}:
+ *   delete:
+ *     summary: Deactivate reward (Professional owner or Admin)
+ *     tags: [Rewards]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Reward deactivated successfully
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: Reward not found
+ */
+router.delete('/:id', authenticate, (req, res) => controller.delete(req, res));
+
+/**
+ * @swagger
  * /rewards/{id}/redeem:
  *   post:
  *     summary: Redeem a reward

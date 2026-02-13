@@ -167,4 +167,66 @@ export class UserController {
       next(error);
     }
   }
+
+  // ============= ADMIN METHODS =============
+
+  async listAllUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { role, page, perPage } = req.query;
+      const result = await this.userService.listAllUsers({
+        role: role as string,
+        page: page ? parseInt(page as string) : undefined,
+        perPage: perPage ? parseInt(perPage as string) : undefined,
+      });
+      ResponseHandler.success(res, result.data, result.meta);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async listPatients(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { search, page, perPage } = req.query;
+      const result = await this.userService.listPatients({
+        search: search as string,
+        page: page ? parseInt(page as string) : undefined,
+        perPage: perPage ? parseInt(perPage as string) : undefined,
+      });
+      ResponseHandler.success(res, result.data, result.meta);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getUserDetails(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = req.params;
+      const user = await this.userService.getUserDetails(userId);
+      ResponseHandler.success(res, user);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async adminUpdateUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = req.params;
+      const { firstName, lastName, email, phone, registrationNumber, specialty, bio, isActive } = req.body;
+      
+      const user = await this.userService.adminUpdateUser(userId, {
+        firstName,
+        lastName,
+        email,
+        phone,
+        registrationNumber,
+        specialty,
+        bio,
+        isActive,
+      });
+      
+      ResponseHandler.success(res, user);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

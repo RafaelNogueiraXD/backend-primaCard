@@ -56,9 +56,60 @@ const swaggerOptions = {
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Middleware
-app.use(helmet());
-app.use(cors({ origin: config.cors.origin, credentials: true }));
+// ============================================
+// CORS CONFIGURATION - ALLOW ALL ORIGINS
+// ============================================
+const corsOptions = {
+  origin: '*', // Permite qualquer origem
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers',
+    'X-Admin-Key',
+    'X-API-Key',
+    'ngrok-skip-browser-warning',
+  ],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  credentials: false, // Quando origin é '*', credentials deve ser false
+  maxAge: 86400, // Cache preflight por 24 horas
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
+};
+
+// Middleware - CORS FIRST (antes de tudo)
+app.use(cors(corsOptions));
+
+// Handler manual para preflight OPTIONS (garante que funcione)
+app.options('*', cors(corsOptions));
+
+// Headers CORS adicionais como fallback
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Admin-Key, X-API-Key, ngrok-skip-browser-warning');
+  res.header('Access-Control-Max-Age', '86400');
+  
+  // Se for uma requisição OPTIONS, responde imediatamente
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+  
+  next();
+});
+
+// Helmet com configurações mais permissivas para CORS
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginOpenerPolicy: { policy: 'unsafe-none' },
+  crossOriginEmbedderPolicy: false,
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined', { stream: { write: (message) => logger.info(message.trim()) } }));

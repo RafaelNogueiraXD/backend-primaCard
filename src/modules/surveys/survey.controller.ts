@@ -11,7 +11,7 @@ export class SurveyController {
   async create(req: Request, res: Response): Promise<void> {
     try {
       const { userId } = req.user as any;
-      const { title, description, targetAudience, questions } = req.body;
+      const { title, description, targetAudience, questions, targetUserId } = req.body;
 
       if (!title || !questions) {
         res.status(400).json({
@@ -26,6 +26,7 @@ export class SurveyController {
         targetAudience: targetAudience || 'ALL',
         questions,
         createdById: userId,
+        targetUserId: targetUserId || undefined,
       });
 
       logger.info(`Survey created: ${survey.id}`);
@@ -86,7 +87,7 @@ export class SurveyController {
   async update(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const { title, description, isActive, targetAudience, questions } = req.body;
+      const { title, description, isActive, targetAudience, questions, targetUserId } = req.body;
 
       const updated = await surveyService.update(id, {
         title,
@@ -94,6 +95,7 @@ export class SurveyController {
         isActive,
         targetAudience,
         questions,
+        targetUserId,
       });
 
       logger.info(`Survey updated: ${id}`);

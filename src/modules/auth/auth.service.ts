@@ -92,25 +92,13 @@ export class AuthService {
             referredId: newUser.id,
             referredEmail: newUser.email,
             referredPhone: newUser.phone,
-            status: 'PENDING', // User has registered, pending first appointment
+            status: 'PENDING', // User has registered, pending first completed appointment
           },
         });
 
-        // Award points to referrer immediately upon registration
-        await tx.pointTransaction.create({
-          data: {
-            userId: referrer.id,
-            bucket: 'general',
-            delta: config.referral.pointsGeneral,
-            cause: 'REFERRAL_COMPLETED',
-            referenceType: 'referral',
-            referenceId: newUser.id,
-            metadata: {
-              referredName: `${newUser.firstName} ${newUser.lastName}`,
-              referredEmail: newUser.email,
-            },
-          },
-        });
+        // NOTE: Points are NOT awarded immediately upon registration
+        // Points will be awarded when the referred user completes their first appointment
+        // This prevents abuse/spam of the referral system
       }
 
       return newUser;

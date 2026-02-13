@@ -52,7 +52,7 @@ async function main() {
       city: 'São Paulo',
       state: 'SP',
       zipCode: '01234-567',
-      scheduleSettings: {
+      scheduleSettings: JSON.stringify({
         workingHours: {
           monday: { start: '08:00', end: '18:00' },
           tuesday: { start: '08:00', end: '18:00' },
@@ -62,7 +62,7 @@ async function main() {
         },
         lunchBreak: { start: '12:00', end: '13:00' },
         slotDuration: 30,
-      },
+      }),
     },
   });
   console.log('✅ Professional created:', professionalUser.email);
@@ -161,7 +161,13 @@ async function main() {
     await prisma.reward.create({
       data: {
         professionalId: professional.id,
-        ...reward,
+        name: reward.name,
+        description: reward.description,
+        costPoints: reward.costPoints,
+        allowedBuckets: JSON.stringify(reward.allowedBuckets),
+        excludedBuckets: JSON.stringify(reward.excludedBuckets),
+        terms: reward.terms,
+        stockQuantity: reward.stockQuantity,
         stockRemaining: reward.stockQuantity,
       },
     });
